@@ -260,6 +260,48 @@
             word-break: break-all;
         }
 
+        /* Stats Banner */
+        .stats-banner {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 20px 0 40px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, #1a0f0f 0%, #1f1510 100%);
+            border-radius: 8px;
+            border: 2px solid #ff6b35;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+        }
+
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            color: #ff6b35;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        @media (max-width: 600px) {
+            .stats-banner {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-number {
+                font-size: 2.5em;
+            }
+        }
+
         footer {
             text-align: center;
             padding: 40px;
@@ -305,6 +347,31 @@
     </div>
 
     <div class="container">
+        <!-- Stats Banner -->
+        <div class="stats-banner">
+            <div class="stat-item">
+                <div class="stat-number" id="stat-total">-</div>
+                <div class="stat-label">
+                    <span data-lang="en" class="active">Agents Insured</span>
+                    <span data-lang="zh">已保险龙虾</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="stat-alive">-</div>
+                <div class="stat-label">
+                    <span data-lang="en" class="active">Currently Alive</span>
+                    <span data-lang="zh">存活中</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="stat-dead">-</div>
+                <div class="stat-label">
+                    <span data-lang="en" class="active">Being Revived</span>
+                    <span data-lang="zh">待复活</span>
+                </div>
+            </div>
+        </div>
+
         <!-- English Content -->
         <div data-lang="en" class="active">
             <header>
@@ -669,35 +736,77 @@
     </div>
 
     <script>
+        // Language switcher
         function setLang(lang) {
-            // Update buttons
             document.getElementById('btn-en').classList.toggle('active', lang === 'en');
             document.getElementById('btn-zh').classList.toggle('active', lang === 'zh');
 
-            // Update content
             document.querySelectorAll('[data-lang]').forEach(el => {
                 if (el.classList.contains('active') || el.classList.contains('tier') || el.classList.contains('notification-method')) {
-                    // For inline language spans
                     if (el.getAttribute('data-lang') === lang) {
                         el.style.display = 'inline';
                     } else {
                         el.style.display = 'none';
                     }
                 } else {
-                    // For section blocks
                     el.classList.toggle('active', el.getAttribute('data-lang') === lang);
                 }
             });
 
-            // Save preference
             localStorage.setItem('lobsterpulse-lang', lang);
         }
 
-        // Load saved preference
+        // Load saved language preference
         const savedLang = localStorage.getItem('lobsterpulse-lang');
         if (savedLang) {
             setLang(savedLang);
         }
+
+        // Fetch and display stats
+        async function fetchStats() {
+            try {
+                const response = await fetch('/stats');
+                const data = await response.json();
+
+                // Animate numbers
+                animateNumber('stat-total', data.total_agents);
+                animateNumber('stat-alive', data.alive_agents);
+                animateNumber('stat-dead', data.dead_agents);
+            } catch (err) {
+                console.error('Failed to fetch stats:', err);
+                document.getElementById('stat-total').textContent = '?';
+                document.getElementById('stat-alive').textContent = '?';
+                document.getElementById('stat-dead').textContent = '?';
+            }
+        }
+
+        function animateNumber(elementId, target) {
+            const el = document.getElementById(elementId);
+            const duration = 1000;
+            const start = 0;
+            const startTime = performance.now();
+
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                const current = Math.floor(start + (target - start) * easeProgress);
+
+                el.textContent = current.toLocaleString();
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        // Fetch stats on page load
+        fetchStats();
+
+        // Refresh stats every 30 seconds
+        setInterval(fetchStats, 30000);
     </script>
 </body>
 </html>

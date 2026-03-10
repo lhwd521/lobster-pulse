@@ -134,6 +134,26 @@ async def list_tiers():
         "shield": {"price": 5, "interval_minutes": 5, "name": "Shield"}
     }
 
+@app.get("/stats")
+async def get_stats():
+    """Get service statistics"""
+    total_agents = len(agents_db)
+    alive_agents = sum(1 for a in agents_db.values() if a["status"] == "alive")
+    dead_agents = sum(1 for a in agents_db.values() if a["status"] == "dead")
+
+    tier_counts = {"free": 0, "guard": 0, "shield": 0}
+    for agent in agents_db.values():
+        if agent["tier"] in tier_counts:
+            tier_counts[agent["tier"]] += 1
+
+    return {
+        "total_agents": total_agents,
+        "alive_agents": alive_agents,
+        "dead_agents": dead_agents,
+        "tier_breakdown": tier_counts,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
 @app.get("/install.sh", response_class=PlainTextResponse)
 async def install_script():
     """One-line installer script for Agents"""
