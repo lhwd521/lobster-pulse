@@ -30,8 +30,19 @@ app = FastAPI(
 # Startup/shutdown events
 @app.on_event("startup")
 async def startup_event():
-    init_db()
-    start_scheduler()
+    try:
+        init_db()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error(f"Database init failed: {e}")
+        # Continue even if DB fails - health check will still work
+
+    try:
+        start_scheduler()
+        logger.info("Scheduler started")
+    except Exception as e:
+        logger.error(f"Scheduler start failed: {e}")
+
     logger.info("LobsterPulse started")
 
 @app.on_event("shutdown")
@@ -299,7 +310,9 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal server error"}
     )
 
+# For Railway deployment - import uvicorn at module level
+import uvicorn
+
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
