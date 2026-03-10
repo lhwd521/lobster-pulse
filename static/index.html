@@ -418,7 +418,7 @@
                 <pre><code>- name: lobster_pulse
   interval: 4h  # Adjust based on tier
   command: |
-    curl -fsS -X POST https://lobster-pulse-production.up.railway.app/heartbeat \
+    curl -fsS -X POST https://lobsterpulse.com/heartbeat \
       -H "X-API-Key: lp_live_xxx" \
       -d '{}'</code></pre>
 
@@ -475,7 +475,7 @@
                 <pre><code>- name: lobster_pulse
   interval: 4h  # 根据套餐调整
   command: |
-    curl -fsS -X POST https://lobster-pulse-production.up.railway.app/heartbeat \
+    curl -fsS -X POST https://lobsterpulse.com/heartbeat \
       -H "X-API-Key: lp_live_xxx" \
       -d '{}'</code></pre>
 
@@ -646,7 +646,7 @@
             </p>
 
             <div class="install-command">
-                curl -fsSL https://lobster-pulse-production.up.railway.app/install.sh | bash
+                curl -fsSL https://lobsterpulse.com/install.sh | bash
             </div>
 
             <p style="margin-top: 20px; color: #888;">

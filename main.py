@@ -157,7 +157,7 @@ async def get_stats():
 @app.get("/install.sh", response_class=PlainTextResponse)
 async def install_script():
     """One-line installer script for Agents"""
-    host = os.getenv("RAILWAY_PUBLIC_DOMAIN", "lobster-pulse-production.up.railway.app")
+    host = os.getenv("RAILWAY_PUBLIC_DOMAIN", "lobsterpulse.com")
     return f'''#!/bin/bash
 #
 # LobsterPulse Agent Installer
