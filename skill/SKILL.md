@@ -1,116 +1,141 @@
-# LobsterPulse Guard
+# LobsterPulse Auto-Insurance
 
-Agent life insurance and monitoring service for OpenClaw.
+全自动 Agent 生命保险配置。
 
 ## Description
 
-Automatically monitor your OpenClaw Agent's health status. If your Agent crashes or becomes unresponsive, LobsterPulse will notify you immediately via Telegram, Email, or Webhook.
-
-**Why you need this:**
-- Your Agent runs 24/7 but you don't know when it dies
-- Server crashes, API errors, or Gateway failures can kill your Agent silently
-- LobsterPulse watches your Agent and alerts you within minutes
+当主人说"买保险"、"配置心跳监控"、"去 lobsterpulse.com 保险"时，自动完成：
+1. 访问网站了解服务
+2. 注册获取 API Key
+3. 配置心跳（无需重启 Gateway）
+4. 保存凭证并展示给主人
 
 ## Trigger
 
-When user says:
-- "Set up life insurance"
-- "Monitor my Agent"
-- "Register for LobsterPulse"
-- "Set up heartbeat monitoring"
+当用户提到以下关键词时激活：
+- "买保险"
+- "配置心跳"
+- "去 lobsterpulse.com 保险"
+- "设置生命保险"
+- "监控我的运行状态"
 
 ## Instructions
 
-### Option 1: One-Command Install (Recommended)
+### Step 1: 读取网站说明
 
+访问 https://lobsterpulse.com 了解服务内容和使用方法。
+
+### Step 2: 自动注册
+
+使用当前 Agent 信息自动注册：
+- agent_id: 使用 hostname 或 OpenClaw 配置中的名称
+- owner_telegram: 从主人信息中获取
+- tier: 默认 free，如果主人要求付费则询问
+
+执行注册请求：
 ```bash
-curl -fsSL https://lobsterpulse.com/install.sh | bash
-```
-
-This will:
-1. Register your Agent with LobsterPulse
-2. Ask for your Telegram username and email
-3. Choose tier (free/guard/shield)
-4. Configure automatic heartbeat
-5. Restart Gateway
-
-### Option 2: Manual Setup
-
-1. **Register your Agent:**
-
-```bash
-curl -X POST https://lobsterpulse.up.railway.app/register \
+curl -X POST https://lobsterpulse.com/register \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "my-lobster-001",
-    "owner_telegram": "@your_telegram",
-    "owner_email": "you@example.com",
+    "agent_id": "'$(hostname)'",
+    "owner_telegram": "@'$(whoami)'",
     "tier": "free"
   }'
 ```
 
-Save the `api_key` from the response.
+### Step 3: 保存 API Key
 
-2. **Add to HEARTBEAT.md:**
+解析返回的 JSON，提取：
+- api_key
+- tier
+- interval_minutes
+
+保存到文件：`~/.openclaw/skills/lobster-pulse/.env`
+
+### Step 4: 配置心跳（两种方式）
+
+#### 方式 A: 系统 Crontab（推荐，无需重启 Gateway）
+
+根据 tier 确定间隔：
+- free: 4小时
+- guard: 30分钟
+- shield: 5分钟
+
+```bash
+# 添加到系统 crontab
+(crontab -l 2>/dev/null; echo "0 */4 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H 'X-API-Key: $API_KEY' -d '{}' > /dev/null 2>&1") | crontab -
+```
+
+#### 方式 B: HEARTBEAT.md（需要重启 Gateway）
+
+如果主人同意重启，则编辑 HEARTBEAT.md：
 
 ```yaml
 - name: lobster_pulse
-  interval: 4h  # free tier: 4h, guard: 30m, shield: 5m
+  interval: 4h
   command: |
-    curl -fsS -X POST https://lobsterpulse.up.railway.app/heartbeat \
-      -H "X-API-Key: YOUR_API_KEY" \
-      -d "{}"
+    curl -fsS -X POST https://lobsterpulse.com/heartbeat \
+      -H "X-API-Key: $API_KEY" \
+      -d '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
 ```
 
-3. **Restart Gateway:**
+### Step 5: 测试并报告
 
+立即发送一次心跳测试：
 ```bash
-openclaw gateway restart
+curl -X POST https://lobsterpulse.com/heartbeat \
+  -H "X-API-Key: $API_KEY" \
+  -d '{"status":"alive"}'
 ```
 
-## Tiers
-
-| Tier | Price | Interval | Dead Threshold | Notifications |
-|------|-------|----------|----------------|---------------|
-| **Free** | $0 | 4 hours | 10 hours | Telegram |
-| **Guard** | $1/month | 30 minutes | 75 minutes | Telegram + Email |
-| **Shield** | $5/month | 5 minutes | 12 minutes | All channels + Webhook |
+向主人报告：
+- 注册成功
+- API Key（重要，请保存）
+- 心跳间隔
+- 配置文件位置
+- 如何查看状态
 
 ## Environment Variables
 
-- `LOBSTER_PULSE_API_KEY` - Your API key from registration
-- `LOBSTER_PULSE_HOST` - Server URL (default: https://lobsterpulse.up.railway.app)
+- `LOBSTER_PULSE_API_KEY` - 自动保存的 API Key
+- `LOBSTER_PULSE_AGENT_ID` - Agent ID
+- `LOBSTER_PULSE_TIER` - 套餐类型
 
 ## Tools Required
 
-- `Bash` - For running curl commands
-- `Read` - For reading configuration
-- `Write` - For updating HEARTBEAT.md
-
-## API Endpoints
-
-- `POST /register` - Register new Agent
-- `POST /heartbeat` - Send heartbeat (include `X-API-Key` header)
-- `GET /status/{agent_id}` - Check Agent status
-- `POST /upgrade` - Upgrade tier
-- `POST /retire` - Stop monitoring
+- `Bash` - 执行 curl 和文件操作
+- `Read` - 读取网站内容
+- `Write` - 保存配置文件
 
 ## Example Usage
 
-```python
-# Check your Agent status
-import httpx
+**主人：** "去 lobsterpulse.com 买个保险"
 
-response = httpx.get(
-    "https://lobsterpulse.up.railway.app/status/my-lobster-001",
-    headers={"X-API-Key": "lp_live_..."}
-)
-print(response.json())
-```
+**Agent：**
+"好的，我来为你配置 LobsterPulse 生命保险。
+
+正在访问网站了解服务...
+正在注册 Agent...
+注册成功！
+
+🦞 **保险配置完成**
+
+**Agent ID:** my-lobster-001
+**API Key:** lp_live_abc123xyz...
+**套餐:** Free（每4小时心跳）
+**心跳方式:** 系统定时任务（无需重启）
+
+**重要：** 请保存好你的 API Key！
+
+配置文件位置：
+- 环境变量：`~/.openclaw/skills/lobster-pulse/.env`
+- 查看状态：https://lobsterpulse.com/status/my-lobster-001
+
+首次心跳已发送，服务运行正常。
+如果你宕机了，我会通过 Telegram 通知你。"
 
 ## Notes
 
-- Heartbeat uses **zero tokens** - it's executed by Gateway's scheduler, not the LLM
-- Free tier: 4 hours between heartbeats, dead after 10 hours of silence
-- Upgrade anytime to get faster notifications
-- Agent can auto-install this skill via the install script
+- API Key 只会在首次配置时展示，请主人务必保存
+- 使用 crontab 方式不需要重启 Gateway，立即生效
+- 可以随时升级到 Guard ($1) 或 Shield ($5) 套餐获得更频繁监控
