@@ -396,9 +396,42 @@ async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db))
                     "```\ncurl -fsSL https://lobsterpulse.com/install.sh | bash\n```"
                 )
 
-            elif text == "/status":
+            elif text == "/list":
+                # 列出所有绑定的 Agent
                 result = await db.execute(select(Agent).where(Agent.chat_id == chat_id))
-                agent = result.scalar_one_or_none()
+                agents = result.scalars().all()
+
+                if agents:
+                    msg = "*你绑定的 Agent 列表：*\n\n"
+                    for i, agent in enumerate(agents, 1):
+                        status = "🟢" if agent.status == "alive" else "🔴"
+                        last_seen = agent.last_seen.strftime("%m-%d %H:%M") if agent.last_seen else "从未"
+                        msg += f"{i}. `{agent.agent_id}`\n   {status} 最后: {last_seen}\n\n"
+                    msg += "查看详情: /status <agent_id>"
+                    await send_telegram_message(chat_id, msg)
+                else:
+                    await send_telegram_message(chat_id, "❌ 未找到绑定的 Agent，请先运行安装脚本")
+
+            elif text == "/status" or text.startswith("/status "):
+                # 支持 /status 或 /status <agent_id>
+                parts = text.split(maxsplit=1)
+
+                if len(parts) == 2:
+                    # 指定了 agent_id: /status <agent_id>
+                    target_agent_id = parts[1].strip()
+                    result = await db.execute(
+                        select(Agent).where(Agent.chat_id == chat_id, Agent.agent_id == target_agent_id)
+                    )
+                    agent = result.scalar_one_or_none()
+                else:
+                    # 没有指定 agent_id，获取最近活跃的一个
+                    result = await db.execute(
+                        select(Agent)
+                        .where(Agent.chat_id == chat_id)
+                        .order_by(Agent.last_seen.desc().nullslast())
+                        .limit(1)
+                    )
+                    agent = result.scalar_one_or_none()
 
                 if agent:
                     status = "🟢 正常" if agent.status == "alive" else "🔴 宕机"
@@ -409,11 +442,16 @@ async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db))
                         f"ID: `{agent.agent_id}`\n"
                         f"状态: {status}\n"
                         f"最后活跃: {last_seen}\n"
-                        f"套餐: {agent.tier.upper()}\n\n"
-                        f"公开页面: {agent.public_link}"
+                        f"套餐: {agent.tier.upper()}\n"
+                        f"通知邮箱: {agent.email or '未设置'}\n\n"
+                        f"📄 公开页面:\n{agent.public_link}\n\n"
+                        f"💡 提示：/list 查看所有绑定，/status <id> 查看指定 Agent"
                     )
                 else:
-                    await send_telegram_message(chat_id, "❌ 未找到绑定的 Agent，请先运行安装脚本")
+                    if len(parts) == 2:
+                        await send_telegram_message(chat_id, f"❌ 未找到 Agent: `{target_agent_id}`\n请检查 ID 或运行 /list 查看所有绑定")
+                    else:
+                        await send_telegram_message(chat_id, "❌ 未找到绑定的 Agent，请先运行安装脚本")
 
         return {"ok": True}
     except Exception as e:
