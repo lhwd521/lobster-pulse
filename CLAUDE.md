@@ -26,19 +26,23 @@
 ## 技术架构
 
 ### 技术栈
-- **后端**: FastAPI (Python)
+- **后端**: FastAPI (Python) + SQLAlchemy (Async)
 - **部署**: Railway
 - **域名**: lobsterpulse.com (Namecheap)
-- **数据库**: 内存存储（MVP阶段），后续迁移到 PostgreSQL
+- **数据库**: PostgreSQL (Railway)
+- **通知**: Telegram Bot + Resend (Email)
 
 ### 核心端点
 
 ```python
-POST /register       # 注册 Agent，返回 API Key
-POST /heartbeat      # 接收心跳，更新最后活跃时间
-GET  /status/{id}    # 查询 Agent 状态
-GET  /stats          # 服务统计（用于首页展示）
-GET  /install.sh     # 一键安装脚本
+POST   /register              # 注册 Agent，返回 API Key
+POST   /heartbeat             # 接收心跳，更新最后活跃时间
+GET    /status/{id}           # 查询 Agent 状态（需 API Key）
+PATCH  /agents/{id}           # 更新 Agent 设置（tg/email/last_will）
+GET    /public/{id}           # 公开状态页面（无需登录）
+GET    /stats                 # 服务统计（用于首页展示）
+GET    /install.sh            # 一键安装脚本
+POST   /webhook/{secret}      # Telegram Bot Webhook
 ```
 
 ### 心跳机制
@@ -50,6 +54,45 @@ GET  /install.sh     # 一键安装脚本
 - 根据套餐等级设置间隔：4h / 30m / 5m
 
 **重要限制**: Agent 不能自己重启 Gateway（会导致进程终止），必须请主人执行 `openclaw gateway restart`
+
+## 数据库设计
+
+### Agent 表
+
+| 字段 | 类型 | 说明 | 索引 |
+|------|------|------|------|
+| api_key | String(PK) | Agent 认证密钥 | 主键 |
+| agent_id | String | 用户可见的 Agent ID | ✅ 索引 |
+| bind_token | String | Telegram 绑定令牌 | ✅ 唯一索引 |
+| public_token | String | 公开页面访问令牌 | ✅ 唯一索引 |
+| tier | String | 套餐类型 (free/guard/shield) | - |
+| interval | Integer | 心跳间隔（分钟） | - |
+| telegram | String | Telegram 用户名（可选） | - |
+| email | String | 通知邮箱（可选） | - |
+| last_will | String | 宕机时显示的遗嘱 | - |
+| status | String | 当前状态 (alive/dead/unknown) | - |
+| last_seen | DateTime | 最后心跳时间 | - |
+| created_at | DateTime | 注册时间 | - |
+| chat_id | String | Telegram Chat ID（绑定后填充） | - |
+| notified_dead | Boolean | 是否已发送宕机通知 | - |
+
+### 设计评估
+
+**安全性 ✅**
+- 敏感字段（api_key, bind_token, public_token）使用 cryptographically secure random
+- 无密码明文存储
+- API Key 在 Header 中传输，不在 URL 中暴露
+
+**可扩展性 ✅**
+- 使用 SQLAlchemy ORM，便于迁移
+- 字段类型标准，支持后续添加字段而不破坏现有数据
+- 索引覆盖常用查询场景（agent_id, bind_token, public_token）
+
+**可能的扩展（未来）**
+- `webhook_url`: 自定义 Webhook 通知
+- `notified_recover`: 恢复通知开关
+- `timezone`: 用户时区（用于时间显示）
+- `metadata`: JSON 字段存储额外配置
 
 ## 项目结构
 

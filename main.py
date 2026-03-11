@@ -83,6 +83,11 @@ class RegisterRequest(BaseModel):
 class HeartbeatRequest(BaseModel):
     status: str = "alive"
 
+class UpdateAgentRequest(BaseModel):
+    owner_telegram: Optional[str] = None
+    owner_email: Optional[str] = None
+    last_will: Optional[str] = None
+
 # Database dependency
 async def get_db():
     async with async_session() as session:
@@ -247,7 +252,43 @@ async def get_status(
         "last_seen": agent.last_seen.isoformat() if agent.last_seen else None,
         "created_at": agent.created_at.isoformat(),
         "telegram_bound": agent.chat_id is not None,
-        "email": agent.email
+        "email": agent.email,
+        "telegram": agent.telegram,
+        "last_will": agent.last_will,
+        "public_link": f"https://lobsterpulse.com/public/{agent.agent_id}?token={agent.public_token}"
+    }
+
+@app.patch("/agents/{agent_id}")
+async def update_agent(
+    agent_id: str,
+    request: UpdateAgentRequest,
+    x_api_key: str = Header(..., alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update agent settings (telegram, email, last_will)"""
+    result = await db.execute(select(Agent).where(Agent.api_key == x_api_key))
+    agent = result.scalar_one_or_none()
+
+    if not agent or agent.agent_id != agent_id:
+        raise HTTPException(404, "Agent not found")
+
+    # Update fields if provided
+    if request.owner_telegram is not None:
+        agent.telegram = request.owner_telegram
+    if request.owner_email is not None:
+        agent.email = request.owner_email
+    if request.last_will is not None:
+        agent.last_will = request.last_will
+
+    await db.commit()
+    await db.refresh(agent)
+
+    return {
+        "agent_id": agent.agent_id,
+        "telegram": agent.telegram,
+        "email": agent.email,
+        "last_will": agent.last_will,
+        "message": "Agent updated successfully"
     }
 
 @app.get("/public/{agent_id}")
