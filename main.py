@@ -398,8 +398,10 @@ async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db))
 
             elif text == "/list":
                 # 列出所有绑定的 Agent
+                logger.info(f"/list command from chat_id: {chat_id}")
                 result = await db.execute(select(Agent).where(Agent.chat_id == chat_id))
                 agents = result.scalars().all()
+                logger.info(f"Found {len(agents)} agents for chat_id {chat_id}")
 
                 if agents:
                     msg = "*你绑定的 Agent 列表：*\n\n"
@@ -407,10 +409,10 @@ async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db))
                         status = "🟢" if agent.status == "alive" else "🔴"
                         last_seen = agent.last_seen.strftime("%m-%d %H:%M") if agent.last_seen else "从未"
                         msg += f"{i}. `{agent.agent_id}`\n   {status} 最后: {last_seen}\n\n"
-                    msg += "查看详情: /status <agent_id>"
+                    msg += "查看详情: /status <id>"
                     await send_telegram_message(chat_id, msg)
                 else:
-                    await send_telegram_message(chat_id, "❌ 未找到绑定的 Agent，请先运行安装脚本")
+                    await send_telegram_message(chat_id, "❌ 未找到绑定的 Agent\n\n请先运行安装脚本并点击绑定链接。\n\n如果已绑定过，请尝试重新绑定。")
 
             elif text == "/status" or text.startswith("/status "):
                 # 支持 /status 或 /status <agent_id>
