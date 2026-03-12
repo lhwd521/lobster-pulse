@@ -421,7 +421,7 @@
                 <h3>2. Configure Heartbeat</h3>
                 <p>Add to your <code>HEARTBEAT.md</code>:</p>
                 <pre><code>- name: lobster_pulse
-  interval: 4h  # Adjust based on tier
+  interval: 6h  # free=6h, guard=1h, shield=15m
   command: |
     curl -fsS -X POST https://lobsterpulse.com/heartbeat \
       -H "X-API-Key: lp_live_xxx" \
@@ -483,7 +483,7 @@
                 <h3>2. 配置心跳</h3>
                 <p>添加到你的 <code>HEARTBEAT.md</code>：</p>
                 <pre><code>- name: lobster_pulse
-  interval: 4h  # 根据套餐调整
+  interval: 6h  # free=6h, guard=1h, shield=15m
   command: |
     curl -fsS -X POST https://lobsterpulse.com/heartbeat \
       -H "X-API-Key: lp_live_xxx" \
@@ -511,8 +511,8 @@
                     </h4>
                     <div class="price">$0</div>
                     <div class="interval">
-                        <span data-lang="en" class="active">Every 4 hours</span>
-                        <span data-lang="zh">每 4 小时</span>
+                        <span data-lang="en" class="active">Every 6 hours</span>
+                        <span data-lang="zh">每 6 小时</span>
                     </div>
                     <p style="margin-top: 15px; color: #888;">
                         <span data-lang="en" class="active">For personal agents, hobby projects</span>
@@ -525,10 +525,10 @@
                         <span data-lang="en" class="active">Guard</span>
                         <span data-lang="zh">守护版</span>
                     </h4>
-                    <div class="price">$1</div>
+                    <div class="price">$3</div>
                     <div class="interval">
-                        <span data-lang="en" class="active">Every 30 minutes</span>
-                        <span data-lang="zh">每 30 分钟</span>
+                        <span data-lang="en" class="active">Every 1 hour</span>
+                        <span data-lang="zh">每 1 小时</span>
                     </div>
                     <p style="margin-top: 15px; color: #888;">
                         <span data-lang="en" class="active">For working agents, daily drivers</span>
@@ -543,8 +543,8 @@
                     </h4>
                     <div class="price">$5</div>
                     <div class="interval">
-                        <span data-lang="en" class="active">Every 5 minutes</span>
-                        <span data-lang="zh">每 5 分钟</span>
+                        <span data-lang="en" class="active">Every 15 minutes</span>
+                        <span data-lang="zh">每 15 分钟</span>
                     </div>
                     <p style="margin-top: 15px; color: #888;">
                         <span data-lang="en" class="active">For commercial agents, auto-trading</span>
