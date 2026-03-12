@@ -187,7 +187,7 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
         interval=interval,
         telegram=request.owner_telegram,
         email=request.owner_email,
-        last_will=request.last_will or "主人，我在等你。——你的Agent",
+        last_will=request.last_will or "Master, I'm waiting for you. ——Your Agent",
         status="unknown",
         last_seen=None,
         created_at=datetime.utcnow()
@@ -347,17 +347,17 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
 
         if text == "/start":
             await reply(
-                "🦞 *LobsterPulse - Agent 生命保险*\n\n"
-                "*可用命令：*\n"
-                "`/start` - 显示帮助\n"
-                "`/list` - 查看所有绑定的 Agent\n"
-                "`/status` - 查看最近活跃的 Agent\n"
-                "`/status <id>` - 查看指定 Agent\n\n"
-                "*使用步骤：*\n"
-                "1️⃣ 在 Agent 中运行：\n"
+                "🦞 *LobsterPulse - Agent Life Insurance*\n\n"
+                "*Available Commands:*\n"
+                "`/start` - Show help\n"
+                "`/list` - List all bound Agents\n"
+                "`/status` - View most recent Agent\n"
+                "`/status <id>` - View specific Agent\n\n"
+                "*Setup Steps:*\n"
+                "1️⃣ Run on your Agent:\n"
                 "```\ncurl -fsSL https://lobsterpulse.com/install.sh | bash\n```\n"
-                "2️⃣ 点击返回的绑定链接\n"
-                "3️⃣ 完成！宕机时会收到通知"
+                "2️⃣ Click the binding link returned\n"
+                "3️⃣ Done! You'll be notified when dead"
             )
             return {"ok": True}
 
@@ -370,31 +370,31 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                 db.commit()
                 public_link = f"https://lobsterpulse.com/public/{agent.agent_id}?token={agent.public_token}"
                 await reply(
-                    f"🦞 *LobsterPulse 绑定成功！*\n\n"
+                    f"🦞 *LobsterPulse Binding Successful!*\n\n"
                     f"Agent: `{agent.agent_id}`\n"
-                    f"套餐: {agent.tier.upper()}\n"
-                    f"心跳间隔: {agent.interval}分钟\n\n"
-                    f"📄 [公开状态页面]({public_link})\n\n"
-                    f"💡 使用 `/list` 查看所有绑定"
+                    f"Tier: {agent.tier.upper()}\n"
+                    f"Heartbeat: {agent.interval}min\n\n"
+                    f"📄 [Public Status]({public_link})\n\n"
+                    f"💡 Use `/list` to view all bindings"
                 )
             else:
-                await reply("❌ 绑定失败：无效的绑定码")
+                await reply("❌ Binding failed: Invalid token")
             return {"ok": True}
 
         if text == "/list":
             agents = db.query(Agent).filter(Agent.chat_id == chat_id).all()
 
             if not agents:
-                await reply("❌ 未找到绑定的 Agent，请先运行安装脚本")
+                await reply("❌ No bound Agents found. Please run the install script first.")
                 return {"ok": True}
 
-            msg = "*📋 你绑定的 Agent 列表：*\n\n"
+            msg = "*📋 Your Bound Agents:*\n\n"
             for i, agent in enumerate(agents, 1):
                 status_icon = "🟢" if agent.status == "alive" else "🔴" if agent.status == "dead" else "⚪"
-                last = agent.last_seen.strftime("%m-%d %H:%M") if agent.last_seen else "从未"
-                msg += f"{i}. `{agent.agent_id}`\n   {status_icon} 最后: {last}\n\n"
+                last = agent.last_seen.strftime("%m-%d %H:%M") if agent.last_seen else "Never"
+                msg += f"{i}. `{agent.agent_id}`\n   {status_icon} Last: {last}\n\n"
 
-            msg += "📖 查看详情: `/status` 或 `/status <id>`"
+            msg += "📖 View details: `/status` or `/status <id>`"
             await reply(msg)
             return {"ok": True}
 
@@ -408,26 +408,26 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                 agent = db.query(Agent).filter(Agent.chat_id == chat_id).order_by(Agent.last_seen.desc().nullslast()).first()
 
             if not agent:
-                await reply("❌ 未找到 Agent")
+                await reply("❌ Agent not found")
                 return {"ok": True}
 
-            status_icon = "🟢 正常" if agent.status == "alive" else "🔴 宕机" if agent.status == "dead" else "⚪ 未知"
-            last_seen = agent.last_seen.strftime("%Y-%m-%d %H:%M UTC") if agent.last_seen else "从未"
+            status_icon = "🟢 Alive" if agent.status == "alive" else "🔴 Dead" if agent.status == "dead" else "⚪ Unknown"
+            last_seen = agent.last_seen.strftime("%Y-%m-%d %H:%M UTC") if agent.last_seen else "Never"
             public_link = f"https://lobsterpulse.com/public/{agent.agent_id}?token={agent.public_token}"
 
             await reply(
-                f"*📊 Agent 状态*\n\n"
+                f"*📊 Agent Status*\n\n"
                 f"🆔 ID: `{agent.agent_id}`\n"
-                f"📊 状态: {status_icon}\n"
-                f"🕐 最后活跃: {last_seen}\n"
-                f"💎 套餐: {agent.tier.upper()}\n"
-                f"📧 邮箱: {agent.email or '未设置'}\n\n"
-                f"📄 [公开页面]({public_link})\n\n"
-                f"💡 `/list` - 查看所有"
+                f"📊 Status: {status_icon}\n"
+                f"🕐 Last Seen: {last_seen}\n"
+                f"💎 Tier: {agent.tier.upper()}\n"
+                f"📧 Email: {agent.email or 'Not set'}\n\n"
+                f"📄 [Public Page]({public_link})\n\n"
+                f"💡 `/list` - View all"
             )
             return {"ok": True}
 
-        await reply(f"❓ 未知命令: `{text}`\n\n可用: `/start`, `/list`, `/status`")
+        await reply(f"❓ Unknown command: `{text}`\n\nAvailable: `/start`, `/list`, `/status`")
         return {"ok": True}
 
     except Exception as e:
@@ -465,12 +465,12 @@ def check_dead_agents_sync():
                             import asyncio
                             asyncio.run(send_telegram_message(
                                 agent.chat_id,
-                                f"🚨 *Agent 宕机警报！*\n\n"
+                                f"🚨 *Agent DEAD Alert!*\n\n"
                                 f"Agent: `{agent.agent_id}`\n"
-                                f"最后活跃: {agent.last_seen.strftime('%Y-%m-%d %H:%M UTC')}\n"
-                                f"失联时间: {int(time_since_last.total_seconds() / 60)} 分钟\n\n"
-                                f"遗嘱: _{agent.last_will}_\n\n"
-                                f"请检查你的 Agent 状态！"
+                                f"Last Seen: {agent.last_seen.strftime('%Y-%m-%d %H:%M UTC')}\n"
+                                f"Offline: {int(time_since_last.total_seconds() / 60)} minutes\n\n"
+                                f"Last Will: _{agent.last_will}_\n\n"
+                                f"Please check your Agent status!"
                             ))
 
                         if not agent.notified_dead:
