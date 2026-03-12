@@ -2,6 +2,8 @@
 
 **Agent Life Insurance for OpenClaw**
 
+🌐 **Website:** [lobsterpulse.com](https://lobsterpulse.com)
+
 Monitor your OpenClaw Agent's heartbeat. Get notified immediately when your Agent goes offline.
 
 ## Why?
