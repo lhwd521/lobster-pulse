@@ -1,17 +1,17 @@
 import os
 import secrets
 import logging
-import asyncio
+import threading
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Depends, Header, Request, BackgroundTasks
-from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse, RedirectResponse
+from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, String, DateTime, Integer, Boolean, create_engine, select, func
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import aiohttp
 import resend
 
@@ -22,56 +22,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database setup
+# Database setup - Sync version (more reliable)
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-# If DATABASE_URL not set, try to construct from Railway's variables
+# Try to construct from Railway variables if not set
 if not DATABASE_URL:
-    pg_host = os.getenv("PGHOST") or os.getenv("POSTGRES_HOST")
-    pg_port = os.getenv("PGPORT") or os.getenv("POSTGRES_PORT", "5432")
-    pg_user = os.getenv("PGUSER") or os.getenv("POSTGRES_USER")
-    pg_password = os.getenv("PGPASSWORD") or os.getenv("POSTGRES_PASSWORD")
-    pg_db = os.getenv("PGDATABASE") or os.getenv("POSTGRES_DB", "railway")
+    pg_host = os.getenv("PGHOST") or "postgres.railway.internal"
+    pg_port = os.getenv("PGPORT") or "5432"
+    pg_user = os.getenv("PGUSER") or "postgres"
+    pg_password = os.getenv("PGPASSWORD") or ""
+    pg_db = os.getenv("PGDATABASE") or "railway"
 
-    if pg_host and pg_user and pg_password:
+    if pg_password:
         DATABASE_URL = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}"
-        logger.info("Constructed DATABASE_URL from Railway variables")
 
 logger.info(f"DATABASE_URL present: {bool(DATABASE_URL)}")
-if DATABASE_URL:
-    logger.info(f"DATABASE_URL starts with: {DATABASE_URL[:50]}...")
-
-# Fallback to memory storage if no database URL
-USE_MEMORY_DB = not DATABASE_URL or DATABASE_URL == ""
 
 Base = declarative_base()
 
-if not USE_MEMORY_DB:
-    try:
-        # Handle Railway's postgres:// format (for asyncpg)
-        if DATABASE_URL.startswith("postgresql://"):
-            DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-
-        logger.info(f"Connecting to database with URL: {DATABASE_URL[:50]}...")
-        engine = create_async_engine(
-            DATABASE_URL,
-            echo=False,
-            pool_pre_ping=True,
-            pool_recycle=300,
-        )
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        logger.info("Database engine created successfully")
-    except Exception as e:
-        logger.error(f"Failed to create database engine: {e}", exc_info=True)
-        USE_MEMORY_DB = True
-
-if USE_MEMORY_DB:
-    logger.warning("Using in-memory storage (data will be lost on restart)")
-    memory_agents = {}
-    engine = None
-    async_session = None
-
-# Database Models
 class Agent(Base):
     __tablename__ = "agents"
 
@@ -90,24 +58,53 @@ class Agent(Base):
     chat_id = Column(String, nullable=True)
     notified_dead = Column(Boolean, default=False)
 
-# Create app
-app = FastAPI(
-    title="LobsterPulse",
-    description="Agent Life Insurance",
-    version="2.0.0"
-)
+# Initialize database
+engine = None
+SessionLocal = None
 
-# Mount static files
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+if DATABASE_URL:
+    try:
+        logger.info(f"Connecting to database...")
+        engine = create_engine(
+            DATABASE_URL,
+            echo=False,
+            pool_pre_ping=True,
+            pool_recycle=300,
+        )
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        # Create tables
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database connected and tables created")
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
+        engine = None
+
+if not engine:
+    logger.error("CRITICAL: Database not available!")
+    # Fallback to SQLite
+    try:
+        logger.info("Falling back to SQLite...")
+        engine = create_engine("sqlite:///./lobsterpulse.db", echo=False)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        Base.metadata.create_all(bind=engine)
+        logger.info("SQLite database initialized")
+    except Exception as e:
+        logger.error(f"SQLite also failed: {e}")
+
+def get_db():
+    if SessionLocal is None:
+        raise HTTPException(500, "Database not available")
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "lobster_pulse_webhook")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "alerts@lobsterpulse.com")
 
-# Initialize Resend
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
 
@@ -127,22 +124,18 @@ class UpdateAgentRequest(BaseModel):
     owner_email: Optional[str] = None
     last_will: Optional[str] = None
 
-# Database dependency
-async def get_db():
-    if USE_MEMORY_DB:
-        logger.warning("get_db() called but in memory mode")
-        yield None
-    else:
-        if async_session is None:
-            logger.error("async_session is None but USE_MEMORY_DB is False")
-            yield None
-        else:
-            async with async_session() as session:
-                yield session
+# Create app
+app = FastAPI(
+    title="LobsterPulse",
+    description="Agent Life Insurance",
+    version="2.1.0"
+)
+
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Telegram Bot functions
 async def send_telegram_message(chat_id: str, text: str):
-    """Send message via Telegram Bot"""
     if not TELEGRAM_BOT_TOKEN:
         return
 
@@ -164,67 +157,32 @@ async def send_telegram_message(chat_id: str, text: str):
 
 # Email functions
 async def send_email_notification(to_email: str, subject: str, content: str):
-    """Send email via Resend"""
     if not RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY not set, cannot send email")
         return
 
     try:
         params = {
-            "from": f"LobsterPulse <{RESEND_FROM_EMAIL}>",
+            "from": "LobsterPulse <alerts@lobsterpulse.com>",
             "to": [to_email],
             "subject": subject,
             "text": content,
         }
         resend.Emails.send(params)
-        logger.info(f"Email sent to {to_email}")
     except Exception as e:
         logger.error(f"Error sending email: {e}")
 
-@app.on_event("startup")
-async def startup_event():
-    """Create tables on startup"""
-    if USE_MEMORY_DB:
-        logger.info("Using memory storage, skipping database init")
-    else:
-        try:
-            logger.info(f"Connecting to database with URL: {DATABASE_URL[:30]}...")
-            # Test connection first
-            async with engine.connect() as conn:
-                await conn.execute(select(1))
-            logger.info("Database connection successful")
-
-            # Create tables
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            logger.info("Database tables created successfully")
-        except Exception as e:
-            logger.error(f"Database initialization failed: {e}", exc_info=True)
-            raise  # Don't start if database fails
-
-    # Start background tasks
-    try:
-        if TELEGRAM_BOT_TOKEN or RESEND_API_KEY:
-            logger.info("Starting dead agent detection...")
-            asyncio.create_task(check_dead_agents())
-    except Exception as e:
-        logger.error(f"Failed to start background tasks: {e}", exc_info=True)
-
 @app.get("/", response_class=FileResponse)
 async def root():
-    """Serve the homepage"""
     if os.path.exists("static/index.html"):
         return FileResponse("static/index.html")
-    return {"service": "LobsterPulse", "status": "ok", "version": "2.0.0"}
+    return {"service": "LobsterPulse", "status": "ok", "version": "2.1.0"}
 
 @app.get("/health")
 async def health_check():
-    """Health check"""
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "ok", "timestamp": datetime.utcnow().isoformat(), "db_connected": engine is not None}
 
 @app.post("/register")
-async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    """Register a new agent"""
+async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     api_key = f"lp_{secrets.token_urlsafe(16)}"
     bind_token = secrets.token_urlsafe(8)
     public_token = secrets.token_urlsafe(16)
@@ -251,11 +209,11 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
     )
 
     db.add(agent)
-    await db.commit()
+    db.commit()
+    db.refresh(agent)
 
     logger.info(f"Registered agent: {request.agent_id}")
 
-    # Generate links
     bot_username = "LobsterPulseBot"
     bind_link = f"https://t.me/{bot_username}?start={bind_token}"
     public_link = f"https://lobsterpulse.com/public/{request.agent_id}?token={public_token}"
@@ -267,18 +225,15 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
         "interval_minutes": tier_config["interval"],
         "bind_link": bind_link,
         "public_link": public_link,
-        "message": "Registered successfully. Use bind_link for Telegram notifications or public_link to view status."
     }
 
 @app.post("/heartbeat")
 async def heartbeat(
     request: HeartbeatRequest,
     x_api_key: str = Header(..., alias="X-API-Key"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
-    """Receive heartbeat from agent"""
-    result = await db.execute(select(Agent).where(Agent.api_key == x_api_key))
-    agent = result.scalar_one_or_none()
+    agent = db.query(Agent).filter(Agent.api_key == x_api_key).first()
 
     if not agent:
         raise HTTPException(401, "Invalid API key")
@@ -287,7 +242,7 @@ async def heartbeat(
     agent.status = "alive"
     agent.notified_dead = False
 
-    await db.commit()
+    db.commit()
 
     return {
         "status": "acknowledged",
@@ -299,11 +254,9 @@ async def heartbeat(
 async def get_status(
     agent_id: str,
     x_api_key: str = Header(..., alias="X-API-Key"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
-    """Get agent status (private, requires API key)"""
-    result = await db.execute(select(Agent).where(Agent.api_key == x_api_key))
-    agent = result.scalar_one_or_none()
+    agent = db.query(Agent).filter(Agent.api_key == x_api_key).first()
 
     if not agent or agent.agent_id != agent_id:
         raise HTTPException(404, "Agent not found")
@@ -327,16 +280,13 @@ async def update_agent(
     agent_id: str,
     request: UpdateAgentRequest,
     x_api_key: str = Header(..., alias="X-API-Key"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
-    """Update agent settings (telegram, email, last_will)"""
-    result = await db.execute(select(Agent).where(Agent.api_key == x_api_key))
-    agent = result.scalar_one_or_none()
+    agent = db.query(Agent).filter(Agent.api_key == x_api_key).first()
 
     if not agent or agent.agent_id != agent_id:
         raise HTTPException(404, "Agent not found")
 
-    # Update fields if provided
     if request.owner_telegram is not None:
         agent.telegram = request.owner_telegram
     if request.owner_email is not None:
@@ -344,28 +294,23 @@ async def update_agent(
     if request.last_will is not None:
         agent.last_will = request.last_will
 
-    await db.commit()
-    await db.refresh(agent)
+    db.commit()
+    db.refresh(agent)
 
     return {
         "agent_id": agent.agent_id,
         "telegram": agent.telegram,
         "email": agent.email,
         "last_will": agent.last_will,
-        "message": "Agent updated successfully"
     }
 
 @app.get("/public/{agent_id}")
 async def get_public_status(
     agent_id: str,
     token: str,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
-    """Get public agent status (read-only, no API key needed)"""
-    result = await db.execute(
-        select(Agent).where(Agent.agent_id == agent_id, Agent.public_token == token)
-    )
-    agent = result.scalar_one_or_none()
+    agent = db.query(Agent).filter(Agent.agent_id == agent_id, Agent.public_token == token).first()
 
     if not agent:
         raise HTTPException(404, "Agent not found or invalid token")
@@ -381,7 +326,6 @@ async def get_public_status(
 
 @app.get("/tiers")
 async def list_tiers():
-    """List available tiers"""
     return {
         "free": {"price": 0, "interval_minutes": 240, "name": "Free"},
         "guard": {"price": 1, "interval_minutes": 30, "name": "Guard"},
@@ -389,52 +333,35 @@ async def list_tiers():
     }
 
 @app.get("/stats")
-async def get_stats(db: AsyncSession = Depends(get_db)):
-    """Get service statistics"""
-    total_result = await db.execute(select(func.count()).select_from(Agent))
-    total_agents = total_result.scalar()
-
-    alive_result = await db.execute(select(func.count()).select_from(Agent).where(Agent.status == "alive"))
-    alive_agents = alive_result.scalar()
-
-    dead_result = await db.execute(select(func.count()).select_from(Agent).where(Agent.status == "dead"))
-    dead_agents = dead_result.scalar()
-
-    tier_counts = {"free": 0, "guard": 0, "shield": 0}
-    for tier in tier_counts.keys():
-        tier_result = await db.execute(select(func.count()).select_from(Agent).where(Agent.tier == tier))
-        tier_counts[tier] = tier_result.scalar()
+async def get_stats(db: Session = Depends(get_db)):
+    total_agents = db.query(Agent).count()
+    alive_agents = db.query(Agent).filter(Agent.status == "alive").count()
+    dead_agents = db.query(Agent).filter(Agent.status == "dead").count()
 
     return {
         "total_agents": total_agents,
         "alive_agents": alive_agents,
         "dead_agents": dead_agents,
-        "tier_breakdown": tier_counts,
         "timestamp": datetime.utcnow().isoformat()
     }
 
 # Telegram Bot Webhook
 @app.post(f"/webhook/{TELEGRAM_WEBHOOK_SECRET}")
-async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    """Handle Telegram Bot webhook"""
+async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
     try:
         data = await request.json()
-        logger.info(f"Telegram webhook received: {data}")
+        logger.info(f"Telegram webhook: {data}")
 
         if "message" not in data or "text" not in data["message"]:
-            logger.info("No message text in webhook")
             return {"ok": True}
 
         message = data["message"]
         chat_id = str(message["chat"]["id"])
         text = message["text"].strip()
-        logger.info(f"Processing command '{text}' from chat {chat_id}")
 
-        # Helper function to reply
         async def reply(msg: str):
             await send_telegram_message(chat_id, msg)
 
-        # /start - Show help
         if text == "/start":
             await reply(
                 "🦞 *LobsterPulse - Agent 生命保险*\n\n"
@@ -451,162 +378,89 @@ async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db))
             )
             return {"ok": True}
 
-        # /start <token> - Bind agent
         if text.startswith("/start "):
-            parts = text.split(maxsplit=1)
-            if len(parts) < 2:
-                await reply("❌ 无效的绑定链接")
+            bind_token = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else ""
+            agent = db.query(Agent).filter(Agent.bind_token == bind_token).first()
+
+            if agent:
+                agent.chat_id = chat_id
+                db.commit()
+                await reply(
+                    f"🦞 *LobsterPulse 绑定成功！*\n\n"
+                    f"Agent: `{agent.agent_id}`\n"
+                    f"套餐: {agent.tier.upper()}\n"
+                    f"心跳间隔: {agent.interval}分钟\n\n"
+                    f"📄 公开状态页面：\n{agent.public_link}\n\n"
+                    f"💡 使用 `/list` 查看所有绑定"
+                )
+            else:
+                await reply("❌ 绑定失败：无效的绑定码")
+            return {"ok": True}
+
+        if text == "/list":
+            agents = db.query(Agent).filter(Agent.chat_id == chat_id).all()
+
+            if not agents:
+                await reply("❌ 未找到绑定的 Agent，请先运行安装脚本")
                 return {"ok": True}
 
-            bind_token = parts[1].strip()
-            logger.info(f"Binding with token: {bind_token}")
+            msg = "*📋 你绑定的 Agent 列表：*\n\n"
+            for i, agent in enumerate(agents, 1):
+                status_icon = "🟢" if agent.status == "alive" else "🔴" if agent.status == "dead" else "⚪"
+                last = agent.last_seen.strftime("%m-%d %H:%M") if agent.last_seen else "从未"
+                msg += f"{i}. `{agent.agent_id}`\n   {status_icon} 最后: {last}\n\n"
 
-            result = await db.execute(select(Agent).where(Agent.bind_token == bind_token))
-            agent = result.scalar_one_or_none()
+            msg += "📖 查看详情: `/status` 或 `/status <id>`"
+            await reply(msg)
+            return {"ok": True}
+
+        if text == "/status" or text.startswith("/status "):
+            parts = text.split(maxsplit=1)
+
+            if len(parts) == 2:
+                target_id = parts[1].strip()
+                agent = db.query(Agent).filter(Agent.chat_id == chat_id, Agent.agent_id == target_id).first()
+            else:
+                agent = db.query(Agent).filter(Agent.chat_id == chat_id).order_by(Agent.last_seen.desc().nullslast()).first()
 
             if not agent:
-                await reply("❌ 绑定失败：无效的绑定码，请重新注册")
+                await reply("❌ 未找到 Agent")
                 return {"ok": True}
 
-            agent.chat_id = chat_id
-            await db.commit()
+            status_icon = "🟢 正常" if agent.status == "alive" else "🔴 宕机" if agent.status == "dead" else "⚪ 未知"
+            last_seen = agent.last_seen.strftime("%Y-%m-%d %H:%M UTC") if agent.last_seen else "从未"
 
             await reply(
-                f"🦞 *LobsterPulse 绑定成功！*\n\n"
-                f"Agent: `{agent.agent_id}`\n"
-                f"套餐: {agent.tier.upper()}\n"
-                f"心跳间隔: {agent.interval}分钟\n\n"
-                f"📄 公开状态页面：\n{agent.public_link}\n\n"
-                f"💡 使用 `/list` 查看所有绑定\n"
-                f"💡 使用 `/status` 查看状态"
+                f"*📊 Agent 状态*\n\n"
+                f"🆔 ID: `{agent.agent_id}`\n"
+                f"📊 状态: {status_icon}\n"
+                f"🕐 最后活跃: {last_seen}\n"
+                f"💎 套餐: {agent.tier.upper()}\n"
+                f"📧 邮箱: {agent.email or '未设置'}\n\n"
+                f"📄 *公开页面：*\n{agent.public_link}\n\n"
+                f"💡 `/list` - 查看所有"
             )
-            logger.info(f"Bound agent {agent.agent_id} to chat {chat_id}")
             return {"ok": True}
 
-        # /list - List all bound agents
-        if text == "/list":
-            logger.info(f"Executing /list for chat {chat_id}")
-
-            try:
-                # 先发送一个测试消息确认能工作
-                await reply("🔍 正在查询...")
-
-                result = await db.execute(select(Agent).where(Agent.chat_id == chat_id))
-                agents = result.scalars().all()
-                logger.info(f"Found {len(agents)} agents for chat {chat_id}")
-
-                if not agents:
-                    logger.info("No agents found, sending help message")
-                    await reply(
-                        "❌ *未找到绑定的 Agent*\n\n"
-                        "你的 chat_id: `" + chat_id + "`\n\n"
-                        "可能原因：\n"
-                        "• 还没有绑定任何 Agent\n"
-                        "• 绑定信息已丢失（请重新绑定）\n\n"
-                        "*解决方法：*\n"
-                        "1. 在 Agent 中运行安装脚本\n"
-                        "2. 点击返回的绑定链接\n"
-                        "3. 完成后使用 `/list` 查看"
-                    )
-                    return {"ok": True}
-
-                msg = "*📋 你绑定的 Agent 列表：*\n\n"
-                for i, agent in enumerate(agents, 1):
-                    status_icon = "🟢" if agent.status == "alive" else "🔴" if agent.status == "dead" else "⚪"
-                    last = agent.last_seen.strftime("%m-%d %H:%M") if agent.last_seen else "从未"
-                    msg += f"{i}. `{agent.agent_id}`\n   {status_icon} 最后: {last}\n\n"
-
-                msg += "📖 *查看详情：*\n"
-                msg += "`/status` - 最近活跃的\n"
-                msg += "`/status <id>` - 指定的"
-
-                await reply(msg)
-                logger.info(f"Sent list of {len(agents)} agents")
-
-            except Exception as e:
-                logger.error(f"Error in /list: {e}", exc_info=True)
-                await reply(f"❌ 查询出错：{str(e)[:200]}")
-
-            return {"ok": True}
-
-        # /status - Show status
-        if text == "/status" or text.startswith("/status "):
-            logger.info(f"Executing /status for chat {chat_id}")
-
-            try:
-                parts = text.split(maxsplit=1)
-
-                if len(parts) == 2:
-                    # Specified agent_id
-                    target_id = parts[1].strip()
-                    logger.info(f"Looking for agent: {target_id}")
-                    result = await db.execute(
-                        select(Agent).where(Agent.chat_id == chat_id, Agent.agent_id == target_id)
-                    )
-                else:
-                    # Most recent agent
-                    logger.info("Looking for most recent agent")
-                    result = await db.execute(
-                        select(Agent)
-                        .where(Agent.chat_id == chat_id)
-                        .order_by(Agent.last_seen.desc().nullslast())
-                        .limit(1)
-                    )
-
-                agent = result.scalar_one_or_none()
-
-                if not agent:
-                    if len(parts) == 2:
-                        await reply(f"❌ 未找到 Agent: `{target_id}`\n\n使用 `/list` 查看所有绑定")
-                    else:
-                        await reply("❌ 未找到绑定的 Agent\n\n请先运行安装脚本并绑定")
-                    return {"ok": True}
-
-                status_icon = "🟢 正常" if agent.status == "alive" else "🔴 宕机" if agent.status == "dead" else "⚪ 未知"
-                last_seen = agent.last_seen.strftime("%Y-%m-%d %H:%M UTC") if agent.last_seen else "从未"
-
-                await reply(
-                    f"*📊 Agent 状态*\n\n"
-                    f"🆔 ID: `{agent.agent_id}`\n"
-                    f"📊 状态: {status_icon}\n"
-                    f"🕐 最后活跃: {last_seen}\n"
-                    f"💎 套餐: {agent.tier.upper()}\n"
-                    f"📧 邮箱: {agent.email or '未设置'}\n\n"
-                    f"📄 *公开页面：*\n{agent.public_link}\n\n"
-                    f"💡 `/list` - 查看所有"
-                )
-                logger.info(f"Sent status for {agent.agent_id}")
-
-            except Exception as e:
-                logger.error(f"Error in /status: {e}")
-                await reply(f"❌ 查询出错：{str(e)[:100]}")
-
-            return {"ok": True}
-
-        # Unknown command
-        logger.info(f"Unknown command: {text}")
-        await reply(
-            f"❓ 未知命令: `{text}`\n\n"
-            "*可用命令：*\n"
-            "`/start` - 帮助\n"
-            "`/list` - 绑定列表\n"
-            "`/status` - 查看状态"
-        )
+        await reply(f"❓ 未知命令: `{text}`\n\n可用: `/start`, `/list`, `/status`")
         return {"ok": True}
 
     except Exception as e:
-        logger.error(f"Critical error in telegram webhook: {e}", exc_info=True)
+        logger.error(f"Error in telegram webhook: {e}", exc_info=True)
         return {"ok": False, "error": str(e)}
 
-# Dead agent detection
-async def check_dead_agents():
-    """Background task to check for dead agents"""
+# Background task for dead agent detection
+def check_dead_agents_sync():
+    """Run in background thread"""
     while True:
         try:
-            async with async_session() as session:
-                result = await session.execute(select(Agent))
-                agents = result.scalars().all()
+            if SessionLocal is None:
+                time.sleep(60)
+                continue
 
+            db = SessionLocal()
+            try:
+                agents = db.query(Agent).all()
                 now = datetime.utcnow()
 
                 for agent in agents:
@@ -618,12 +472,13 @@ async def check_dead_agents():
 
                     if time_since_last > expected_interval and agent.status != "dead":
                         agent.status = "dead"
-                        await session.commit()
+                        db.commit()
                         logger.warning(f"Agent {agent.agent_id} marked as dead")
 
                         # Telegram notification
                         if not agent.notified_dead and agent.chat_id:
-                            await send_telegram_message(
+                            import asyncio
+                            asyncio.run(send_telegram_message(
                                 agent.chat_id,
                                 f"🚨 *Agent 宕机警报！*\n\n"
                                 f"Agent: `{agent.agent_id}`\n"
@@ -631,38 +486,25 @@ async def check_dead_agents():
                                 f"失联时间: {int(time_since_last.total_seconds() / 60)} 分钟\n\n"
                                 f"遗嘱: _{agent.last_will}_\n\n"
                                 f"请检查你的 Agent 状态！"
-                            )
+                            ))
                             agent.notified_dead = True
-                            await session.commit()
+                            db.commit()
+            finally:
+                db.close()
 
-                        # Email notification
-                        if not agent.notified_dead and agent.email:
-                            subject = f"🚨 Agent {agent.agent_id} 宕机警报"
-                            content = f"""Agent 宕机警报
-
-Agent ID: {agent.agent_id}
-最后活跃: {agent.last_seen.strftime('%Y-%m-%d %H:%M UTC')}
-失联时间: {int(time_since_last.total_seconds() / 60)} 分钟
-套餐: {agent.tier.upper()}
-
-遗嘱: {agent.last_will}
-
-公开状态页面: https://lobsterpulse.com/public/{agent.agent_id}?token={agent.public_token}
-
-请检查你的 Agent 状态！
-"""
-                            await send_email_notification(agent.email, subject, content)
-
-                await session.commit()
-
-            await asyncio.sleep(60)
         except Exception as e:
             logger.error(f"Error in dead agent checker: {e}")
-            await asyncio.sleep(60)
+
+        time.sleep(60)
+
+# Start background thread
+if TELEGRAM_BOT_TOKEN:
+    checker_thread = threading.Thread(target=check_dead_agents_sync, daemon=True)
+    checker_thread.start()
+    logger.info("Started dead agent detection thread")
 
 @app.get("/install.sh", response_class=PlainTextResponse)
 async def install_script():
-    """One-line installer script"""
     host = os.getenv("RAILWAY_PUBLIC_DOMAIN", "lobsterpulse.com")
     return f'''#!/bin/bash
 #
@@ -695,12 +537,8 @@ echo ""
 echo "Registering with LobsterPulse..."
 
 JSON_PAYLOAD='{{"agent_id":"'$AGENT_ID'","tier":"'$TIER'"}}'
-if [ -n "$OWNER_TELEGRAM" ]; then
-    JSON_PAYLOAD=$(echo $JSON_PAYLOAD | sed 's/}}/, "owner_telegram": "'$OWNER_TELEGRAM'"}}/')
-fi
-if [ -n "$OWNER_EMAIL" ]; then
-    JSON_PAYLOAD=$(echo $JSON_PAYLOAD | sed 's/}}/, "owner_email": "'$OWNER_EMAIL'"}}/')
-fi
+[ -n "$OWNER_TELEGRAM" ] && JSON_PAYLOAD=$(echo "$JSON_PAYLOAD" | sed 's/}}/, "owner_telegram": "'$OWNER_TELEGRAM'"}}/')
+[ -n "$OWNER_EMAIL" ] && JSON_PAYLOAD=$(echo "$JSON_PAYLOAD" | sed 's/}}/, "owner_email": "'$OWNER_EMAIL'"}}/')
 
 RESPONSE=$(curl -s -X POST "${{LOBSTER_PULSE_HOST}}/register" \\
     -H "Content-Type: application/json" \\
@@ -755,16 +593,8 @@ EOF
 echo ""
 echo "🎉 Installation complete!"
 echo ""
-if [ -n "$BIND_LINK" ]; then
-    echo "📱 Telegram: Click to bind notifications"
-    echo "   ${{BIND_LINK}}"
-    echo ""
-fi
-if [ -n "$PUBLIC_LINK" ]; then
-    echo "🌐 Public Status Page (share this link):"
-    echo "   ${{PUBLIC_LINK}}"
-    echo ""
-fi
+[ -n "$BIND_LINK" ] && echo "📱 Telegram: $BIND_LINK"
+[ -n "$PUBLIC_LINK" ] && echo "🌐 Public: $PUBLIC_LINK"
 echo "🔄 Restart Gateway: openclaw gateway restart"
 echo ""
 echo "Your Agent is now insured. 🦞"
