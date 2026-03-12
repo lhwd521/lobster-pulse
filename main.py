@@ -25,8 +25,11 @@ logger = logging.getLogger(__name__)
 # Background thread flag
 background_thread_started = False
 
-# Database setup - Use SQLite for simplicity and reliability
+# Database setup - PostgreSQL with SQLite fallback
 Base = declarative_base()
+
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+logger.info(f"DATABASE_URL present: {bool(DATABASE_URL)}")
 
 class Agent(Base):
     __tablename__ = "agents"
@@ -46,12 +49,33 @@ class Agent(Base):
     chat_id = Column(String, nullable=True)
     notified_dead = Column(Boolean, default=False)
 
-# Initialize SQLite database
-logger.info("Initializing SQLite database...")
-engine = create_engine("sqlite:///./lobsterpulse.db", echo=False)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)
-logger.info("SQLite database initialized successfully")
+# Initialize database
+engine = None
+SessionLocal = None
+
+if DATABASE_URL:
+    try:
+        logger.info("Connecting to PostgreSQL...")
+        engine = create_engine(
+            DATABASE_URL,
+            echo=False,
+            pool_pre_ping=True,
+            pool_recycle=300,
+        )
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        Base.metadata.create_all(bind=engine)
+        logger.info("PostgreSQL database initialized successfully")
+    except Exception as e:
+        logger.error(f"PostgreSQL connection failed: {e}")
+        engine = None
+
+# Fallback to SQLite
+if not engine:
+    logger.info("Using SQLite fallback...")
+    engine = create_engine("sqlite:///./lobsterpulse.db", echo=False)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
+    logger.info("SQLite database initialized")
 
 def get_db():
     if SessionLocal is None:
