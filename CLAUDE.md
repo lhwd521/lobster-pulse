@@ -12,11 +12,11 @@
 
 ### 定价策略（Freemium）
 
-| 套餐 | 价格 | 心跳间隔 | 目标用户 |
-|------|------|----------|----------|
-| **Free** | $0 | 4小时 | 个人开发者，本地部署 |
-| **Guard** | $1/月 | 30分钟 | 轻度商业使用 |
-| **Shield** | $5/月 | 5分钟 | 重要生产环境 |
+| 套餐 | 价格 | 心跳间隔 | 通知渠道 | 目标用户 |
+|------|------|----------|----------|----------|
+| **Free** | $0 | 6小时 | Telegram | 个人开发者，本地部署 |
+| **Guard** | $3/月 | 1小时 | Telegram + Email | 轻度商业使用 |
+| **Shield** | $5/月 | 15分钟 | Telegram + Email | 重要生产环境 |
 
 ### 支付与交付
 - 暂时手动收款（USDT）
@@ -29,7 +29,7 @@
 - **后端**: FastAPI (Python) + SQLAlchemy (Async)
 - **部署**: Railway
 - **域名**: lobsterpulse.com (Namecheap)
-- **数据库**: PostgreSQL (Railway)
+- **数据库**: SQLite (文件存储)
 - **通知**: Telegram Bot + Resend (Email)
 
 ### 核心端点
@@ -45,13 +45,25 @@ GET    /install.sh            # 一键安装脚本
 POST   /webhook/{secret}      # Telegram Bot Webhook
 ```
 
+### Telegram Bot 命令
+
+绑定 Telegram 后可用：
+
+| 命令 | 说明 |
+|------|------|
+| `/start` | 显示帮助信息 |
+| `/start <token>` | 绑定 Agent（从安装脚本获取）|
+| `/list` | 列出所有绑定的 Agent |
+| `/status` | 查看最近活跃的 Agent 状态 |
+| `/status <agent_id>` | 查看指定 Agent 状态 |
+
 ### 心跳机制
 
 **方案选择**: HEARTBEAT.md（OpenClaw原生）
 
 - 配置写入 `~/.openclaw/workspace/HEARTBEAT.md`
 - 静默执行 curl 命令，不调用 LLM
-- 根据套餐等级设置间隔：4h / 30m / 5m
+- 根据套餐等级设置间隔：6h / 1h / 15m
 
 **重要限制**: Agent 不能自己重启 Gateway（会导致进程终止），必须请主人执行 `openclaw gateway restart`
 
@@ -175,13 +187,13 @@ curl -fsSL https://lobsterpulse.com/install.sh | bash
 ## 待办事项
 
 ### 高优先级
-- [ ] 实现 Telegram 通知机器人
-- [ ] 添加邮件通知支持
-- [ ] 实现宕机检测逻辑（对比 last_seen 和 interval）
+- [x] 实现 Telegram 通知机器人
+- [x] 添加邮件通知支持
+- [x] 实现宕机检测逻辑（对比 last_seen 和 interval）
 - [ ] 添加 Webhook 支持
 
 ### 中优先级
-- [ ] 数据库持久化（PostgreSQL）
+- [x] 数据库持久化（SQLite）
 - [ ] 自动化支付流程
 - [ ] 用户自助升级套餐
 - [ ] 更详细的状态页面
