@@ -355,109 +355,178 @@ async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db))
     """Handle Telegram Bot webhook"""
     try:
         data = await request.json()
-        logger.info(f"Telegram webhook: {data}")
+        logger.info(f"Telegram webhook received: {data}")
 
-        if "message" in data and "text" in data["message"]:
-            message = data["message"]
-            chat_id = str(message["chat"]["id"])
-            text = message["text"]
+        if "message" not in data or "text" not in data["message"]:
+            logger.info("No message text in webhook")
+            return {"ok": True}
 
-            if text.startswith("/start "):
-                bind_token = text.split(" ")[1].strip()
+        message = data["message"]
+        chat_id = str(message["chat"]["id"])
+        text = message["text"].strip()
+        logger.info(f"Processing command '{text}' from chat {chat_id}")
 
-                result = await db.execute(select(Agent).where(Agent.bind_token == bind_token))
-                agent = result.scalar_one_or_none()
+        # Helper function to reply
+        async def reply(msg: str):
+            await send_telegram_message(chat_id, msg)
 
-                if agent:
-                    agent.chat_id = chat_id
-                    await db.commit()
-                    await send_telegram_message(
-                        chat_id,
-                        f"🦞 *LobsterPulse 绑定成功！*\n\n"
-                        f"Agent: `{agent.agent_id}`\n"
-                        f"套餐: {agent.tier.upper()}\n"
-                        f"心跳间隔: {agent.interval}分钟\n\n"
-                        f"公开状态页面:\n{agent.public_link}\n\n"
-                        f"当你的 Agent 宕机时，我会立即通知你。"
-                    )
-                    logger.info(f"Bound agent {agent.agent_id} to chat {chat_id}")
-                else:
-                    await send_telegram_message(chat_id, "❌ 绑定失败：无效的绑定码，请重新注册")
+        # /start - Show help
+        if text == "/start":
+            await reply(
+                "🦞 *LobsterPulse - Agent 生命保险*\n\n"
+                "*可用命令：*\n"
+                "`/start` - 显示帮助\n"
+                "`/list` - 查看所有绑定的 Agent\n"
+                "`/status` - 查看最近活跃的 Agent\n"
+                "`/status <id>` - 查看指定 Agent\n\n"
+                "*使用步骤：*\n"
+                "1️⃣ 在 Agent 中运行：\n"
+                "```\ncurl -fsSL https://lobsterpulse.com/install.sh | bash\n```\n"
+                "2️⃣ 点击返回的绑定链接\n"
+                "3️⃣ 完成！宕机时会收到通知"
+            )
+            return {"ok": True}
 
-            elif text == "/start":
-                await send_telegram_message(
-                    chat_id,
-                    "🦞 *LobsterPulse - Agent 生命保险*\n\n"
-                    "使用说明:\n"
-                    "1. 在你的 Agent 中运行安装脚本\n"
-                    "2. 点击返回的绑定链接\n"
-                    "3. 完成绑定后，宕机时会收到通知\n\n"
-                    "安装命令:\n"
-                    "```\ncurl -fsSL https://lobsterpulse.com/install.sh | bash\n```"
-                )
+        # /start <token> - Bind agent
+        if text.startswith("/start "):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2:
+                await reply("❌ 无效的绑定链接")
+                return {"ok": True}
 
-            elif text == "/list":
-                # 列出所有绑定的 Agent
-                logger.info(f"/list command from chat_id: {chat_id}")
+            bind_token = parts[1].strip()
+            logger.info(f"Binding with token: {bind_token}")
+
+            result = await db.execute(select(Agent).where(Agent.bind_token == bind_token))
+            agent = result.scalar_one_or_none()
+
+            if not agent:
+                await reply("❌ 绑定失败：无效的绑定码，请重新注册")
+                return {"ok": True}
+
+            agent.chat_id = chat_id
+            await db.commit()
+
+            await reply(
+                f"🦞 *LobsterPulse 绑定成功！*\n\n"
+                f"Agent: `{agent.agent_id}`\n"
+                f"套餐: {agent.tier.upper()}\n"
+                f"心跳间隔: {agent.interval}分钟\n\n"
+                f"📄 公开状态页面：\n{agent.public_link}\n\n"
+                f"💡 使用 `/list` 查看所有绑定\n"
+                f"💡 使用 `/status` 查看状态"
+            )
+            logger.info(f"Bound agent {agent.agent_id} to chat {chat_id}")
+            return {"ok": True}
+
+        # /list - List all bound agents
+        if text == "/list":
+            logger.info(f"Executing /list for chat {chat_id}")
+
+            try:
                 result = await db.execute(select(Agent).where(Agent.chat_id == chat_id))
                 agents = result.scalars().all()
-                logger.info(f"Found {len(agents)} agents for chat_id {chat_id}")
+                logger.info(f"Found {len(agents)} agents")
 
-                if agents:
-                    msg = "*你绑定的 Agent 列表：*\n\n"
-                    for i, agent in enumerate(agents, 1):
-                        status = "🟢" if agent.status == "alive" else "🔴"
-                        last_seen = agent.last_seen.strftime("%m-%d %H:%M") if agent.last_seen else "从未"
-                        msg += f"{i}. `{agent.agent_id}`\n   {status} 最后: {last_seen}\n\n"
-                    msg += "查看详情: /status <id>"
-                    await send_telegram_message(chat_id, msg)
-                else:
-                    await send_telegram_message(chat_id, "❌ 未找到绑定的 Agent\n\n请先运行安装脚本并点击绑定链接。\n\n如果已绑定过，请尝试重新绑定。")
+                if not agents:
+                    await reply(
+                        "❌ *未找到绑定的 Agent*\n\n"
+                        "可能原因：\n"
+                        "• 还没有绑定任何 Agent\n"
+                        "• 绑定信息已丢失（请重新绑定）\n\n"
+                        "*解决方法：*\n"
+                        "1. 在 Agent 中运行安装脚本\n"
+                        "2. 点击返回的绑定链接\n"
+                        "3. 完成后使用 `/list` 查看"
+                    )
+                    return {"ok": True}
 
-            elif text == "/status" or text.startswith("/status "):
-                # 支持 /status 或 /status <agent_id>
+                msg = "*📋 你绑定的 Agent 列表：*\n\n"
+                for i, agent in enumerate(agents, 1):
+                    status_icon = "🟢" if agent.status == "alive" else "🔴" if agent.status == "dead" else "⚪"
+                    last = agent.last_seen.strftime("%m-%d %H:%M") if agent.last_seen else "从未"
+                    msg += f"{i}. `{agent.agent_id}`\n   {status_icon} 最后: {last}\n\n"
+
+                msg += "📖 *查看详情：*\n"
+                msg += "`/status` - 最近活跃的\n"
+                msg += "`/status <id>` - 指定的"
+
+                await reply(msg)
+                logger.info(f"Sent list of {len(agents)} agents")
+
+            except Exception as e:
+                logger.error(f"Error in /list: {e}")
+                await reply(f"❌ 查询出错：{str(e)[:100]}")
+
+            return {"ok": True}
+
+        # /status - Show status
+        if text == "/status" or text.startswith("/status "):
+            logger.info(f"Executing /status for chat {chat_id}")
+
+            try:
                 parts = text.split(maxsplit=1)
 
                 if len(parts) == 2:
-                    # 指定了 agent_id: /status <agent_id>
-                    target_agent_id = parts[1].strip()
+                    # Specified agent_id
+                    target_id = parts[1].strip()
+                    logger.info(f"Looking for agent: {target_id}")
                     result = await db.execute(
-                        select(Agent).where(Agent.chat_id == chat_id, Agent.agent_id == target_agent_id)
+                        select(Agent).where(Agent.chat_id == chat_id, Agent.agent_id == target_id)
                     )
-                    agent = result.scalar_one_or_none()
                 else:
-                    # 没有指定 agent_id，获取最近活跃的一个
+                    # Most recent agent
+                    logger.info("Looking for most recent agent")
                     result = await db.execute(
                         select(Agent)
                         .where(Agent.chat_id == chat_id)
                         .order_by(Agent.last_seen.desc().nullslast())
                         .limit(1)
                     )
-                    agent = result.scalar_one_or_none()
 
-                if agent:
-                    status = "🟢 正常" if agent.status == "alive" else "🔴 宕机"
-                    last_seen = agent.last_seen.strftime("%Y-%m-%d %H:%M UTC") if agent.last_seen else "从未"
-                    await send_telegram_message(
-                        chat_id,
-                        f"*Agent 状态*\n\n"
-                        f"ID: `{agent.agent_id}`\n"
-                        f"状态: {status}\n"
-                        f"最后活跃: {last_seen}\n"
-                        f"套餐: {agent.tier.upper()}\n"
-                        f"通知邮箱: {agent.email or '未设置'}\n\n"
-                        f"📄 公开页面:\n{agent.public_link}\n\n"
-                        f"💡 提示：/list 查看所有绑定，/status <id> 查看指定 Agent"
-                    )
-                else:
+                agent = result.scalar_one_or_none()
+
+                if not agent:
                     if len(parts) == 2:
-                        await send_telegram_message(chat_id, f"❌ 未找到 Agent: `{target_agent_id}`\n请检查 ID 或运行 /list 查看所有绑定")
+                        await reply(f"❌ 未找到 Agent: `{target_id}`\n\n使用 `/list` 查看所有绑定")
                     else:
-                        await send_telegram_message(chat_id, "❌ 未找到绑定的 Agent，请先运行安装脚本")
+                        await reply("❌ 未找到绑定的 Agent\n\n请先运行安装脚本并绑定")
+                    return {"ok": True}
 
+                status_icon = "🟢 正常" if agent.status == "alive" else "🔴 宕机" if agent.status == "dead" else "⚪ 未知"
+                last_seen = agent.last_seen.strftime("%Y-%m-%d %H:%M UTC") if agent.last_seen else "从未"
+
+                await reply(
+                    f"*📊 Agent 状态*\n\n"
+                    f"🆔 ID: `{agent.agent_id}`\n"
+                    f"📊 状态: {status_icon}\n"
+                    f"🕐 最后活跃: {last_seen}\n"
+                    f"💎 套餐: {agent.tier.upper()}\n"
+                    f"📧 邮箱: {agent.email or '未设置'}\n\n"
+                    f"📄 *公开页面：*\n{agent.public_link}\n\n"
+                    f"💡 `/list` - 查看所有"
+                )
+                logger.info(f"Sent status for {agent.agent_id}")
+
+            except Exception as e:
+                logger.error(f"Error in /status: {e}")
+                await reply(f"❌ 查询出错：{str(e)[:100]}")
+
+            return {"ok": True}
+
+        # Unknown command
+        logger.info(f"Unknown command: {text}")
+        await reply(
+            f"❓ 未知命令: `{text}`\n\n"
+            "*可用命令：*\n"
+            "`/start` - 帮助\n"
+            "`/list` - 绑定列表\n"
+            "`/status` - 查看状态"
+        )
         return {"ok": True}
+
     except Exception as e:
-        logger.error(f"Error in telegram webhook: {e}")
+        logger.error(f"Critical error in telegram webhook: {e}", exc_info=True)
         return {"ok": False, "error": str(e)}
 
 # Dead agent detection
