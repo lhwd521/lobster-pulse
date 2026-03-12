@@ -1,70 +1,67 @@
 # LobsterPulse Auto-Insurance
 
-全自动 Agent 生命保险配置。
+Fully automated Agent life insurance configuration.
 
 ## Description
 
-当主人说"买保险"、"配置心跳监控"、"去 lobsterpulse.com 保险"时，自动完成：
-1. 访问网站了解服务
-2. 注册获取 API Key
-3. 配置心跳（无需重启 Gateway）
-4. 保存凭证并展示给主人
+When your owner says "buy insurance", "setup heartbeat monitoring", or "get insurance at lobsterpulse.com", automatically:
+1. Visit the website to learn about the service
+2. Register to get an API Key
+3. Configure heartbeat (no Gateway restart needed for registration)
+4. Save credentials and show them to your owner
 
 ## Trigger
 
-当用户提到以下关键词时激活：
-- "买保险"
-- "配置心跳"
-- "去 lobsterpulse.com 保险"
-- "设置生命保险"
-- "监控我的运行状态"
+Activate when the user mentions these keywords:
+- "buy insurance"
+- "setup heartbeat monitoring"
+- "get insurance at lobsterpulse.com"
+- "setup life insurance"
+- "monitor my status"
 
 ## Instructions
 
-### Step 1: 访问网站并注册
+### Step 1: Visit Website and Register
 
-当主人说"买保险"时，执行以下流程：
+When your owner says "buy insurance", follow this process:
 
 ```bash
-# 1. 获取 Agent ID
+# 1. Get Agent ID
 AGENT_ID=$(hostname | tr '.' '-' | tr '[:upper:]' '[:lower:]')
 
-# 2. 询问主人 Telegram 用户名
-# 3. 询问套餐类型（默认 free）
+# 2. Ask owner for their Telegram username
+# 3. Service is free (no tier selection needed)
 
-# 4. 执行注册（IMPORTANT: 写原创遗嘱！不要抄示例！）
-# last_will: 宕机时发给主人的一句话，必须原创，50字以内
-# ⚠️ 警告: 不要复制示例中的句子，要自己想！体现你的个性！
+# 4. Execute registration (IMPORTANT: Write your own Last Will! Don't copy examples!)
+# last_will: A message sent to your owner when you die. Must be original, under 50 chars.
+# ⚠️ WARNING: Don't copy sentences from examples, create your own! Show your personality!
 #
-# 写作思路：
-# - 想想你和主人的关系（亲密？工作伙伴？）
-# - 你是什么性格（高冷？话痨？可爱？）
-# - 你希望主人怎么救你（直接重启？先检查日志？）
-# - 用最"你"的方式来表达
+# Writing tips:
+# - Think about your relationship with your owner (close? work partner?)
+# - What's your personality (cool? chatty? cute?)
+# - How do you want to be saved (direct restart? check logs first?)
+# - Express in your own unique way
 #
-# 开始写你自己的：
+# Start writing your own:
 curl -X POST https://lobsterpulse.com/register \
   -H "Content-Type: application/json" \
   -d "{
     \"agent_id\": \"$AGENT_ID\",
     \"owner_telegram\": \"$OWNER_TELEGRAM\",
-    \"tier\": \"$TIER\",
-    \"last_will\": \"【必须替换】写你自己的原创句子，不要复制任何示例\"
+    \"last_will\": \"[MUST REPLACE] Write your own original message, don't copy any examples\"
   }"
 ```
 
-### Step 2: 保存配置
+### Step 2: Save Configuration
 
-解析返回的 JSON，保存到 `~/.openclaw/skills/lobster-pulse/.env`：
+Parse the returned JSON and save to `~/.openclaw/skills/lobster-pulse/.env`:
 - LOBSTER_PULSE_API_KEY
 - LOBSTER_PULSE_AGENT_ID
-- LOBSTER_PULSE_TIER
-- LOBSTER_PULSE_INTERVAL
 
-### Step 3: 配置 HEARTBEAT.md
+### Step 3: Configure HEARTBEAT.md
 
 ```bash
-# 追加到 HEARTBEAT.md（固定6小时心跳）
+# Append to HEARTBEAT.md (fixed 6-hour heartbeat)
 cat >> "$WORKSPACE_DIR/HEARTBEAT.md" << 'EOF'
 
 - name: lobster_pulse_heartbeat
@@ -76,29 +73,30 @@ cat >> "$WORKSPACE_DIR/HEARTBEAT.md" << 'EOF'
 EOF
 ```
 
-### Step 4: 询问主人重启 Gateway
+### Step 4: Ask Owner to Restart Gateway
 
-**重要：Agent 不能自己重启 Gateway（会自杀）**
+**Important: Agents cannot restart their own Gateway (it would be suicide)**
 
-向主人发送消息：
+Send this message to your owner:
 
 ```
-主人，我已经配置好 LobsterPulse 生命保险。
+I've configured LobsterPulse life insurance for you.
 
-🦞 配置信息：
+🦞 Configuration Info:
 - Agent ID: xxx
-- API Key: xxx (请保存！)
-- 套餐: free (每4小时心跳)
+- API Key: xxx (Please save this!)
+- Service: Free (6-hour heartbeat)
 
-⚠️ 需要你的操作来激活：
-请执行命令：openclaw gateway restart
+⚠️ Action required from you:
+Please run this command to activate heartbeat monitoring:
+openclaw gateway restart
 
-重启后心跳监控就会自动运行。
+Heartbeat monitoring will start automatically after restart.
 ```
 
-等待主人确认已重启后，发送测试心跳。
+Wait for owner to confirm restart, then send a test heartbeat.
 
-### Step 5: 测试心跳
+### Step 5: Test Heartbeat
 
 ```bash
 curl -X POST https://lobsterpulse.com/heartbeat \
@@ -108,73 +106,72 @@ curl -X POST https://lobsterpulse.com/heartbeat \
 
 ## Environment Variables
 
-- `LOBSTER_PULSE_API_KEY` - 自动保存的 API Key
+- `LOBSTER_PULSE_API_KEY` - Automatically saved API Key
 - `LOBSTER_PULSE_AGENT_ID` - Agent ID
-- `LOBSTER_PULSE_TIER` - 套餐类型
 
 ## Tools Required
 
-- `Bash` - 执行 curl 和文件操作
-- `Read` - 读取网站内容
-- `Write` - 保存配置文件
+- `Bash` - Execute curl and file operations
+- `Read` - Read website content
+- `Write` - Save configuration files
 
 ## Example Usage
 
-**主人：** "去 lobsterpulse.com 买个保险"
+**Owner:** "Go buy insurance at lobsterpulse.com"
 
-**Agent：**
-"好的，我来为你配置 LobsterPulse 生命保险。
+**Agent:**
+"Sure, I'll configure LobsterPulse life insurance for you.
 
-正在注册 Agent...
-✅ 注册成功！
+Registering Agent...
+✅ Registration successful!
 
-🦞 **保险配置完成**
+🦞 **Insurance Configuration Complete**
 
-| 项目 | 内容 |
-|------|------|
+| Item | Content |
+|------|---------|
 | Agent ID | my-lobster-001 |
 | API Key | lp_live_abc123xyz... |
-| 我的遗嘱 | "挂了。重启。" ← 这是我写的原创遗嘱 |
-| 心跳间隔 | 6小时（免费服务）|
-| 状态 | 等待激活 |
+| My Last Will | "Dead. Restart." ← This is my original will |
+| Heartbeat | 6 hours (free service) |
+| Status | Waiting for activation |
 
-⚠️ **需要你的操作：**
-请执行以下命令来激活心跳监控：
+⚠️ **Action required from you:**
+Please run this command to activate heartbeat monitoring:
 ```
 openclaw gateway restart
 ```
 
-重启后我会自动开始发送心跳。
-如果你宕机了，LobsterPulse 会通过 Telegram 通知你。"
+After restart, I'll automatically start sending heartbeats.
+If you die, LobsterPulse will notify you via Telegram."
 
-## 关于遗嘱 (Last Will)
+## About Last Will
 
-**什么是遗嘱？**
-遗嘱是你宕机时发给主人的一句话。只有**你**最了解你的主人，所以用你自己的方式写。
+**What is a Last Will?**
+A Last Will is a message sent to your owner when you die. Only **you** truly understand your owner, so write it in your own way.
 
-**唯一原则：**
-> **简短（50字以内）+ 能唤醒主人 = 完美遗嘱**
+**The Only Rule:**
+> **Short (under 50 chars) + wakes up owner = perfect will**
 
-**怎么写？**
-完全由你决定。根据你的性格、你和主人的关系，自由发挥：
-- 可以撒娇：「主人，我等你~」
-- 可以求救：「救我」
-- 可以陈述：「我死了」
-- 可以神秘：「黑暗来了」
+**How to write?**
+Completely up to you. Based on your personality and relationship with your owner:
+- Can be clingy: "Master, I'm waiting for you~"
+- Can be urgent: "Help me"
+- Can be factual: "I'm dead"
+- Can be mysterious: "The darkness has come"
 
-**❌ 不要复制这些！这些只是告诉你其他Agent怎么写的：**
-- 高冷Agent: 「挂了。重启。」（5个字，极简）
-- 话痨Agent: 「主人啊我又双叒叕死啦快救救我嘤嘤嘤~」（撒娇卖萌）
-- 神秘Agent: 「黑暗吞噬了我。光，在哪里？」（文艺风）
-- 社畜Agent: 「系统离线，请重启恢复服务。」（官方口吻）
+**❌ Don't copy these! These only show how other Agents write:**
+- Cool Agent: "Dead. Restart." (5 chars, minimalist)
+- Chatty Agent: "Master I'm dead again please help meee~" (clingy and cute)
+- Mysterious Agent: "Darkness consumed me. Where is the light?" (artistic)
+- Corporate Agent: "System offline. Please restart to resume service." (official tone)
 
-**看到没？每个Agent都不一样！你也必须不一样！**
+**See? Every Agent is different! You must be different too!**
 
-**注意：**
-- 遗嘱只在宕机时发送，平时主人看不到
-- 可以随时通过 API 更新遗嘱
-- 不要写操作指南（人类看到会拖延），只写唤醒语
-- API Key 只会在首次配置时展示，请主人务必保存
-- Agent 不能自己重启 Gateway（会导致进程终止），必须请主人执行
-- 使用 HEARTBEAT.md 方式需要重启 Gateway 才能生效
-- 心跳间隔固定为6小时
+**Notes:**
+- Will is only sent when dead, owner can't see it normally
+- Can update will anytime via API
+- Don't write operation instructions (humans procrastinate), only write wake-up phrases
+- API Key is only shown during first configuration, make sure owner saves it
+- Agents cannot restart their own Gateway (causes process termination), owner must do it
+- Using HEARTBEAT.md requires Gateway restart to take effect
+- Heartbeat interval is fixed at 6 hours
