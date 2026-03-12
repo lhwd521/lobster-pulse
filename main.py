@@ -175,19 +175,16 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     bind_token = secrets.token_urlsafe(8)
     public_token = secrets.token_urlsafe(16)
 
-    tier_config = {
-        "free": {"interval": 360, "price": 0, "billing": "lifetime", "channels": ["telegram"]},
-        "guard": {"interval": 60, "price": 5, "billing": "lifetime", "channels": ["telegram", "email"]},
-        "shield": {"interval": 15, "price": 9, "billing": "lifetime", "channels": ["telegram", "email"]}
-    }.get(request.tier, {"interval": 360, "price": 0, "billing": "lifetime", "channels": ["telegram"]})
+    # Single free tier: 6h interval
+    interval = 360
 
     agent = Agent(
         api_key=api_key,
         agent_id=request.agent_id,
         bind_token=bind_token,
         public_token=public_token,
-        tier=request.tier,
-        interval=tier_config["interval"],
+        tier="free",
+        interval=interval,
         telegram=request.owner_telegram,
         email=request.owner_email,
         last_will=request.last_will or "主人，我在等你。——你的Agent",
@@ -209,8 +206,8 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     return {
         "agent_id": request.agent_id,
         "api_key": api_key,
-        "tier": request.tier,
-        "interval_minutes": tier_config["interval"],
+        "tier": "free",
+        "interval_minutes": interval,
         "bind_link": bind_link,
         "public_link": public_link,
     }
@@ -315,9 +312,7 @@ async def get_public_status(
 @app.get("/tiers")
 async def list_tiers():
     return {
-        "free": {"price": 0, "billing": "lifetime", "interval_minutes": 360, "name": "Free", "channels": ["telegram"]},
-        "guard": {"price": 5, "billing": "lifetime", "interval_minutes": 60, "name": "Guard", "channels": ["telegram", "email"]},
-        "shield": {"price": 9, "billing": "lifetime", "interval_minutes": 15, "name": "Shield", "channels": ["telegram", "email"]}
+        "free": {"price": 0, "interval_minutes": 360, "name": "Free"}
     }
 
 @app.get("/stats")
@@ -478,24 +473,6 @@ def check_dead_agents_sync():
                                 f"请检查你的 Agent 状态！"
                             ))
 
-                        # Email notification (Guard and Shield tiers only)
-                        if not agent.notified_dead and agent.email and agent.tier != "free":
-                            import asyncio
-                            subject = f"🚨 Agent {agent.agent_id} 宕机警报"
-                            content = f"""
-Agent: {agent.agent_id}
-最后活跃: {agent.last_seen.strftime('%Y-%m-%d %H:%M UTC')}
-失联时间: {int(time_since_last.total_seconds() / 60)} 分钟
-
-遗嘱: {agent.last_will}
-
-请检查你的 Agent 状态！
-
----
-LobsterPulse - Agent Life Insurance
-"""
-                            asyncio.run(send_email_notification(agent.email, subject, content))
-
                         if not agent.notified_dead:
                             agent.notified_dead = True
                             db.commit()
@@ -543,11 +520,9 @@ else
 fi
 
 echo ""
-echo "📋 Pricing Plans (One-time payment, lifetime use):"
-echo "  Free   - $0,  6h interval, Telegram only"
-echo "  Guard  - $5,  1h interval, Telegram + Email"
-echo "  Shield - $9,  15m interval, Telegram + Email"
+echo "📋 Free Service: 6h heartbeat interval via Telegram"
 echo ""
+
 read -p "Your Telegram username (e.g., @yourname, required for Free): " OWNER_TELEGRAM
 read -p "Your email for notifications (required for Guard/Shield): " OWNER_EMAIL
 read -p "Choose tier [free/guard/shield] (default: free): " TIER
@@ -578,13 +553,8 @@ echo "✅ Registered! API Key: ${{API_KEY:0:20}}..."
 
 mkdir -p "$WORKSPACE_DIR"
 
-if [ "$INTERVAL" -eq 15 ]; then
-    INTERVAL_STR="15m"
-elif [ "$INTERVAL" -eq 60 ]; then
-    INTERVAL_STR="1h"
-else
-    INTERVAL_STR="6h"
-fi
+# Fixed 6h interval for free tier
+INTERVAL_STR="6h"
 
 if [ -f "$WORKSPACE_DIR/HEARTBEAT.md" ]; then
     grep -v "lobster_pulse" "$WORKSPACE_DIR/HEARTBEAT.md" > "$WORKSPACE_DIR/HEARTBEAT.md.tmp" || true

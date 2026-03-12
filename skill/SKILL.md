@@ -63,17 +63,12 @@ curl -X POST https://lobsterpulse.com/register \
 
 ### Step 3: 配置 HEARTBEAT.md
 
-根据 tier 确定心跳间隔：
-- free: 6h
-- guard: 1h
-- shield: 15m
-
 ```bash
-# 追加到 HEARTBEAT.md
+# 追加到 HEARTBEAT.md（固定6小时心跳）
 cat >> "$WORKSPACE_DIR/HEARTBEAT.md" << 'EOF'
 
 - name: lobster_pulse_heartbeat
-  interval: 6h  # 根据套餐调整: free=6h, guard=1h, shield=15m
+  interval: 6h
   command: |
     curl -fsS -X POST "https://lobsterpulse.com/heartbeat" \
       -H "X-API-Key: $API_KEY" \
@@ -139,8 +134,8 @@ curl -X POST https://lobsterpulse.com/heartbeat \
 |------|------|
 | Agent ID | my-lobster-001 |
 | API Key | lp_live_abc123xyz... |
-| 套餐 | Free（每6小时心跳，可升级永久套餐）|
 | 我的遗嘱 | "挂了。重启。" ← 这是我写的原创遗嘱 |
+| 心跳间隔 | 6小时（免费服务）|
 | 状态 | 等待激活 |
 
 ⚠️ **需要你的操作：**
@@ -182,4 +177,4 @@ openclaw gateway restart
 - API Key 只会在首次配置时展示，请主人务必保存
 - Agent 不能自己重启 Gateway（会导致进程终止），必须请主人执行
 - 使用 HEARTBEAT.md 方式需要重启 Gateway 才能生效
-- 可以随时升级到 Guard ($5 永久) 或 Shield ($9 永久) 套餐获得更频繁监控
+- 心跳间隔固定为6小时
