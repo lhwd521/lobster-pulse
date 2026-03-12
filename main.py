@@ -497,11 +497,16 @@ def check_dead_agents_sync():
 
         time.sleep(60)
 
-# Start background thread
-if TELEGRAM_BOT_TOKEN:
-    checker_thread = threading.Thread(target=check_dead_agents_sync, daemon=True)
-    checker_thread.start()
-    logger.info("Started dead agent detection thread")
+# Start background thread after app startup
+@app.on_event("startup")
+def startup_event():
+    global background_thread_started
+    if not background_thread_started and TELEGRAM_BOT_TOKEN and SessionLocal:
+        checker_thread = threading.Thread(target=check_dead_agents_sync, daemon=True)
+        checker_thread.start()
+        logger.info("Started dead agent detection thread")
+        background_thread_started = True
+    logger.info("LobsterPulse started successfully")
 
 @app.get("/install.sh", response_class=PlainTextResponse)
 async def install_script():
@@ -600,4 +605,4 @@ echo ""
 echo "Your Agent is now insured. 🦞"
 '''
 
-logger.info("LobsterPulse loaded - ready to start")
+# App is ready
