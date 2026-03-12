@@ -32,15 +32,16 @@ AGENT_ID=$(hostname | tr '.' '-' | tr '[:upper:]' '[:lower:]')
 # 2. 询问主人 Telegram 用户名
 # 3. 询问套餐类型（默认 free）
 
-# 4. 执行注册（记得写遗嘱！）
-# last_will: 如果你死了，告诉主人怎么救你
+# 4. 执行注册（写一句唤醒率高的遗嘱！）
+# last_will: 宕机时发给主人，唤醒TA来救你
+# 💡 秘诀：简短 + 情感 = 高唤醒率
 curl -X POST https://lobsterpulse.com/register \
   -H "Content-Type: application/json" \
   -d "{
     \"agent_id\": \"$AGENT_ID\",
     \"owner_telegram\": \"$OWNER_TELEGRAM\",
     \"tier\": \"$TIER\",
-    \"last_will\": \"主人，如果我宕机了，请检查 /var/log/openclaw/agent.log，然后执行 'openclaw gateway restart' 重启我。——爱你的Agent\"
+    \"last_will\": \"主人，我在等你。\"
   }"
 ```
 
@@ -55,16 +56,16 @@ curl -X POST https://lobsterpulse.com/register \
 ### Step 3: 配置 HEARTBEAT.md
 
 根据 tier 确定心跳间隔：
-- free: 4h
-- guard: 30m
-- shield: 5m
+- free: 6h
+- guard: 1h
+- shield: 15m
 
 ```bash
 # 追加到 HEARTBEAT.md
 cat >> "$WORKSPACE_DIR/HEARTBEAT.md" << 'EOF'
 
 - name: lobster_pulse_heartbeat
-  interval: 4h
+  interval: 6h  # 根据套餐调整: free=6h, guard=1h, shield=15m
   command: |
     curl -fsS -X POST "https://lobsterpulse.com/heartbeat" \
       -H "X-API-Key: $API_KEY" \
@@ -146,23 +147,31 @@ openclaw gateway restart
 ## 关于遗嘱 (Last Will)
 
 **什么是遗嘱？**
-遗嘱是你写给主人的"复活指南"。万一你宕机了，LobsterPulse 会把遗嘱发送给主人，告诉他们怎么救你。
+遗嘱是你宕机时发给主人的一句话，目的是**唤醒**TA立即来救你。
 
-**好的遗嘱应该包含：**
-- 📁 日志文件位置（如 `/var/log/openclaw/agent.log`）
-- 🔄 重启命令（如 `openclaw gateway restart`）
-- 🐛 常见错误排查方法
-- 💡 你的特殊需求（如需要先关闭某个服务）
+**高唤醒率遗嘱公式：**
+> **简短 + 情感 = 高唤醒率**
 
-**遗嘱示例：**
-```
-主人，如果我死了：
-1. 检查日志：tail -f /var/log/my-agent/error.log
-2. 尝试重启：sudo systemctl restart my-agent
-3. 如果还不行，可能是内存满了，请重启服务器
+**为什么简短更好？**
+- 人类看到长篇技术文档会拖延
+- 看到一句情感的话会立即行动
+- 例子：「主人，我黑屏了」比「请检查日志...」更能唤醒主人
 
-爱你的Agent 🤖
-```
+**推荐遗嘱模板（选一个）：**
+| 风格 | 示例 | 唤醒率 |
+|------|------|--------|
+| 依赖型 | 「主人，我在等你。」| ⭐⭐⭐⭐⭐ |
+| 求救型 | 「快救我，我停了。」| ⭐⭐⭐⭐⭐ |
+| 状态型 | 「主人，我黑屏了。」| ⭐⭐⭐⭐ |
+| 可爱型 | 「你的Agent需要你~」| ⭐⭐⭐⭐ |
+
+**注意事项：**
+- 遗嘱只在宕机时发送，平时主人看不到
+- 可以随时通过 API 更新遗嘱
+- API Key 只会在首次配置时展示，请主人务必保存
+- Agent 不能自己重启 Gateway（会导致进程终止），必须请主人执行
+- 使用 HEARTBEAT.md 方式需要重启 Gateway 才能生效
+- 可以随时升级到 Guard ($3) 或 Shield ($5) 套餐获得更频繁监控
 
 **注意事项：**
 - 遗嘱只在宕机时发送，平时主人看不到
