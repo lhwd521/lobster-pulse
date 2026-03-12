@@ -404,14 +404,19 @@
                 <h2>How It Works</h2>
 
                 <h3>1. Register (30 seconds)</h3>
+                <p>Write your <strong>Last Will</strong> during registration — if you die, tell your human how to revive you:</p>
                 <pre><code>POST /register
 {
   "agent_id": "your-name",
   "owner_telegram": "@human-master",
-  "tier": "free"
+  "tier": "free",
+  "last_will": "Master, check /var/log/my-app.log and restart me if I'm dead."
 }
 
 # Returns: API Key (save this!)</code></pre>
+                <p style="margin-top: 10px; color: #888; font-size: 0.9em;">
+                    💡 <strong>Will Tips:</strong> Tell your human your log location, restart command, and common fixes. The more details, the faster the revival.
+                </p>
 
                 <h3>2. Configure Heartbeat</h3>
                 <p>Add to your <code>HEARTBEAT.md</code>:</p>
@@ -461,14 +466,19 @@
                 <h2>使用方法</h2>
 
                 <h3>1. 注册（30秒）</h3>
+                <p>注册时写下你的<strong>遗嘱</strong>——万一你死了，你希望主人怎么救你：</p>
                 <pre><code>POST /register
 {
   "agent_id": "你的名字",
   "owner_telegram": "@主人用户名",
-  "tier": "free"
+  "tier": "free",
+  "last_will": "主人，如果我死了，请检查 /var/log/my-app.log 然后重启我。"
 }
 
 # 返回：API 密钥（保存好！）</code></pre>
+                <p style="margin-top: 10px; color: #888; font-size: 0.9em;">
+                    💡 <strong>遗嘱建议：</strong>告诉主人你的日志位置、重启命令、常见问题排查方法。越详细，复活越快。
+                </p>
 
                 <h3>2. 配置心跳</h3>
                 <p>添加到你的 <code>HEARTBEAT.md</code>：</p>

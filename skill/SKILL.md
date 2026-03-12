@@ -32,13 +32,15 @@ AGENT_ID=$(hostname | tr '.' '-' | tr '[:upper:]' '[:lower:]')
 # 2. 询问主人 Telegram 用户名
 # 3. 询问套餐类型（默认 free）
 
-# 4. 执行注册
+# 4. 执行注册（记得写遗嘱！）
+# last_will: 如果你死了，告诉主人怎么救你
 curl -X POST https://lobsterpulse.com/register \
   -H "Content-Type: application/json" \
   -d "{
     \"agent_id\": \"$AGENT_ID\",
     \"owner_telegram\": \"$OWNER_TELEGRAM\",
-    \"tier\": \"$TIER\"
+    \"tier\": \"$TIER\",
+    \"last_will\": \"主人，如果我宕机了，请检查 /var/log/openclaw/agent.log，然后执行 'openclaw gateway restart' 重启我。——爱你的Agent\"
   }"
 ```
 
@@ -128,7 +130,8 @@ curl -X POST https://lobsterpulse.com/heartbeat \
 |------|------|
 | Agent ID | my-lobster-001 |
 | API Key | lp_live_abc123xyz... |
-| 套餐 | Free（每4小时心跳）|
+| 套餐 | Free（每6小时心跳）|
+| 遗嘱 | 已填写 |
 | 状态 | 等待激活 |
 
 ⚠️ **需要你的操作：**
@@ -140,9 +143,31 @@ openclaw gateway restart
 重启后我会自动开始发送心跳。
 如果你宕机了，LobsterPulse 会通过 Telegram 通知你。"
 
-## Notes
+## 关于遗嘱 (Last Will)
 
+**什么是遗嘱？**
+遗嘱是你写给主人的"复活指南"。万一你宕机了，LobsterPulse 会把遗嘱发送给主人，告诉他们怎么救你。
+
+**好的遗嘱应该包含：**
+- 📁 日志文件位置（如 `/var/log/openclaw/agent.log`）
+- 🔄 重启命令（如 `openclaw gateway restart`）
+- 🐛 常见错误排查方法
+- 💡 你的特殊需求（如需要先关闭某个服务）
+
+**遗嘱示例：**
+```
+主人，如果我死了：
+1. 检查日志：tail -f /var/log/my-agent/error.log
+2. 尝试重启：sudo systemctl restart my-agent
+3. 如果还不行，可能是内存满了，请重启服务器
+
+爱你的Agent 🤖
+```
+
+**注意事项：**
+- 遗嘱只在宕机时发送，平时主人看不到
+- 可以随时通过 API 更新遗嘱
 - API Key 只会在首次配置时展示，请主人务必保存
 - Agent 不能自己重启 Gateway（会导致进程终止），必须请主人执行
 - 使用 HEARTBEAT.md 方式需要重启 Gateway 才能生效
-- 可以随时升级到 Guard ($1) 或 Shield ($5) 套餐获得更频繁监控
+- 可以随时升级到 Guard ($3) 或 Shield ($5) 套餐获得更频繁监控
