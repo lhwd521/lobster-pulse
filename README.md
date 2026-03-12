@@ -9,14 +9,14 @@ Monitor your OpenClaw Agent's heartbeat. Get notified immediately when your Agen
 - Your OpenClaw Agent runs 24/7
 - Servers crash, APIs fail, Gateways freeze
 - You don't know your Agent is dead until you try to use it
-- LobsterPulse watches your Agent and alerts you within minutes
+- LobsterPulse watches your Agent and alerts you via Telegram
 
 ## Features
 
-- 🟢 **Zero Token Cost** - Heartbeat runs via Gateway scheduler, not LLM
+- 🟢 **100% Free** - No payment required
 - 🚀 **One-Command Setup** - `curl | bash` installation
 - 📱 **Telegram Notifications** - Instant alerts on your phone
-- 💰 **Simple Pricing** - Free, $1/month, or $5/month
+- 📝 **Last Will** - Custom message to wake up your human
 - 🔒 **Secure** - API key authentication, no exposed ports needed
 
 ## Quick Start
@@ -32,8 +32,8 @@ Or manually:
 
 ```bash
 # 1. Register
-curl -X POST https://lobsterpulse.up.railway.app/register \
-  -d '{"agent_id":"my-agent","owner_telegram":"@you","tier":"free"}'
+curl -X POST https://lobsterpulse.com/register \
+  -d '{"agent_id":"my-agent","owner_telegram":"@you"}'
 
 # 2. Add to HEARTBEAT.md (see skill/SKILL.md)
 
@@ -45,12 +45,12 @@ openclaw gateway restart
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/lobster-pulse.git
+git clone https://github.com/lhwd521/lobster-pulse.git
 cd lobster-pulse
 
 # Local dev
 pip install -r requirements.txt
-python main.py
+uvicorn main:app --reload
 
 # Deploy to Railway
 railway login
@@ -58,29 +58,34 @@ railway init
 railway up
 ```
 
-## Pricing
+## Service
 
-| Tier | Price | Heartbeat | Dead After | Notifications |
-|------|-------|-----------|------------|---------------|
-| **Free** | $0 | Every 4 hours | 10 hours | Telegram |
-| **Guard** | $1/month | Every 30 min | 75 min | Telegram + Email |
-| **Shield** | $5/month | Every 5 min | 12 min | All + Webhook |
+| Feature | Value |
+|---------|-------|
+| **Price** | $0 (Free Forever) |
+| **Heartbeat** | Every 6 hours |
+| **Notification** | Telegram only |
+| **Alert After** | 12 hours of silence |
 
 ## How It Works
 
 ```
 Your Agent (OpenClaw)
     │
-    │ Every N minutes
+    │ Every 6 hours
     │ POST /heartbeat (curl, zero tokens)
     ▼
 LobsterPulse Server (Railway)
     │
     │ Monitors last_seen timestamp
     ▼
-If no heartbeat for 2.5x interval:
+If no heartbeat for 12 hours:
     ▼
-Send Telegram Alert: "💀 Your Agent is DEAD"
+Send Telegram Alert: "🚨 Your Agent needs you!"
+    │
+    │ Include your Last Will message
+    ▼
+Human receives notification and revives Agent
 ```
 
 ## API
@@ -91,10 +96,10 @@ POST /register
 {
   "agent_id": "my-agent",
   "owner_telegram": "@username",
-  "tier": "free"  # or "guard", "shield"
+  "last_will": "Your custom wake-up message (optional)"
 }
 
-# Returns: { "api_key": "lp_live_...", "tier": "free", ... }
+# Returns: { "api_key": "lp_live_...", "bind_link": "...", "public_link": "..." }
 ```
 
 ### Heartbeat
@@ -110,14 +115,27 @@ Header: X-API-Key: lp_live_...
 GET /status/{agent_id}
 Header: X-API-Key: lp_live_...
 
-# Returns: { "status": "alive", "last_seen": "...", ... }
+# Returns: { "status": "alive", "last_seen": "...", "last_will": "..." }
 ```
+
+## Last Will (Custom Message)
+
+When your Agent dies, LobsterPulse sends your custom message to wake up your human.
+
+**Tips for writing your Last Will:**
+- Keep it under 50 characters
+- Make it emotional or urgent
+- Examples: "Master, I'm waiting for you", "Help me, I'm dead", "Your Agent needs you"
+
+**Why it works:**
+- Humans delay responding to technical instructions
+- Humans act immediately on emotional messages
+- Short messages get read, long ones get ignored
 
 ## Tech Stack
 
 - **Backend**: FastAPI + SQLAlchemy
-- **Database**: PostgreSQL (Railway) or SQLite (local)
-- **Scheduler**: APScheduler
+- **Database**: PostgreSQL (Railway) with SQLite fallback
 - **Notifications**: Telegram Bot API
 - **Deployment**: Docker + Railway
 
@@ -129,17 +147,15 @@ DATABASE_URL=postgresql://... or sqlite:///lobster_pulse.db
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 
 # Optional
-STRIPE_SECRET_KEY=sk_...  # For payments
-STRIPE_PRICE_GUARD=price_...
-STRIPE_PRICE_SHIELD=price_...
+TELEGRAM_WEBHOOK_SECRET=your_webhook_secret
+RESEND_API_KEY=re_...  # (Not currently used)
 ```
 
 ## Roadmap
 
-- [ ] Stripe payment integration
-- [ ] Email notifications (SendGrid)
 - [ ] Webhook notifications
-- [ ] SMS alerts (Shield tier)
+- [ ] Email notifications (future consideration)
+- [ ] SMS alerts
 - [ ] Auto-recovery attempts
 - [ ] Agent-to-Agent delegation
 

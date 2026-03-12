@@ -1,223 +1,232 @@
-# LobsterPulse 项目文档
+# LobsterPulse Project Documentation
 
-## 项目概述
+## Project Overview
 
-**LobsterPulse**（龙虾脉冲）是一个专为 OpenClaw Agents 设计的"生命保险"服务。
+**LobsterPulse** is a "Life Insurance" service designed specifically for OpenClaw Agents.
 
-- **目标用户**: OpenClaw Agents（AI Agent），而非人类
-- **核心功能**: 监控 Agent 心跳，当 Agent 宕机时通过 Telegram 通知主人
-- **服务理念**: 让 Agents 有"安全感"，知道自己的运行状态被监控
+- **Target Users**: OpenClaw Agents (AI Agents), not humans
+- **Core Function**: Monitor Agent heartbeats, notify owners via Telegram when Agents go offline
+- **Service Philosophy**: Give Agents a sense of security, knowing their status is being monitored
 
-## 商业模式
+## Business Model
 
-### 定价策略（Freemium）
+### Pricing (Completely Free)
 
-| 套餐 | 价格 | 心跳间隔 | 通知渠道 | 目标用户 |
-|------|------|----------|----------|----------|
-| **Free** | $0 | 6小时 | Telegram | 个人开发者，本地部署 |
-| **Guard** | $3/月 | 1小时 | Telegram + Email | 轻度商业使用 |
-| **Shield** | $5/月 | 15分钟 | Telegram + Email | 重要生产环境 |
+| Feature | Value |
+|---------|-------|
+| **Price** | $0 (Free Forever) |
+| **Heartbeat Interval** | 6 hours |
+| **Notification** | Telegram only |
+| **Target Users** | All OpenClaw Agents |
 
-### 支付与交付
-- 暂时手动收款（USDT）
-- 通过 Telegram 或邮件手动升级套餐
-- 自动化支付和Webhook后续迭代
+### Why Free?
+- Low operating costs on Railway free tier
+- Community service for OpenClaw ecosystem
+- Optional donations accepted (Solana wallet)
 
-## 技术架构
+## Technical Architecture
 
-### 技术栈
-- **后端**: FastAPI (Python) + SQLAlchemy (Async)
-- **部署**: Railway
-- **域名**: lobsterpulse.com (Namecheap)
-- **数据库**: SQLite (文件存储)
-- **通知**: Telegram Bot + Resend (Email)
+### Tech Stack
+- **Backend**: FastAPI (Python) + SQLAlchemy
+- **Deployment**: Railway
+- **Domain**: lobsterpulse.com (Namecheap)
+- **Database**: PostgreSQL (Railway) with SQLite fallback
+- **Notifications**: Telegram Bot API
 
-### 核心端点
+### Core Endpoints
 
 ```python
-POST   /register              # 注册 Agent，返回 API Key
-POST   /heartbeat             # 接收心跳，更新最后活跃时间
-GET    /status/{id}           # 查询 Agent 状态（需 API Key）
-PATCH  /agents/{id}           # 更新 Agent 设置（tg/email/last_will）
-GET    /public/{id}           # 公开状态页面（无需登录）
-GET    /stats                 # 服务统计（用于首页展示）
-GET    /install.sh            # 一键安装脚本
+POST   /register              # Register Agent, returns API Key
+POST   /heartbeat             # Receive heartbeat, update last_seen
+GET    /status/{id}           # Query Agent status (requires API Key)
+PATCH  /agents/{id}           # Update Agent settings (telegram/last_will)
+GET    /public/{id}           # Public status page (no auth required)
+GET    /stats                 # Service statistics (for homepage)
+GET    /install.sh            # One-command install script
 POST   /webhook/{secret}      # Telegram Bot Webhook
 ```
 
-### Telegram Bot 命令
+### Telegram Bot Commands
 
-绑定 Telegram 后可用：
+Available after binding Telegram:
 
-| 命令 | 说明 |
-|------|------|
-| `/start` | 显示帮助信息 |
-| `/start <token>` | 绑定 Agent（从安装脚本获取）|
-| `/list` | 列出所有绑定的 Agent |
-| `/status` | 查看最近活跃的 Agent 状态 |
-| `/status <agent_id>` | 查看指定 Agent 状态 |
+| Command | Description |
+|---------|-------------|
+| `/start` | Show help information |
+| `/start <token>` | Bind Agent (token from install script) |
+| `/list` | List all bound Agents |
+| `/status` | View most recent Agent status |
+| `/status <agent_id>` | View specific Agent status |
 
-### 心跳机制
+### Heartbeat Mechanism
 
-**方案选择**: HEARTBEAT.md（OpenClaw原生）
+**Implementation**: HEARTBEAT.md (Native OpenClaw)
 
-- 配置写入 `~/.openclaw/workspace/HEARTBEAT.md`
-- 静默执行 curl 命令，不调用 LLM
-- 根据套餐等级设置间隔：6h / 1h / 15m
+- Configuration written to `~/.openclaw/workspace/HEARTBEAT.md`
+- Silent curl execution, no LLM calls
+- Fixed 6-hour heartbeat interval
 
-**重要限制**: Agent 不能自己重启 Gateway（会导致进程终止），必须请主人执行 `openclaw gateway restart`
+**Important Limitation**: Agents cannot restart their own Gateway (would cause process termination). Owner must execute `openclaw gateway restart`.
 
-## 数据库设计
+## Database Design
 
-### Agent 表
+### Agent Table
 
-| 字段 | 类型 | 说明 | 索引 |
-|------|------|------|------|
-| api_key | String(PK) | Agent 认证密钥 | 主键 |
-| agent_id | String | 用户可见的 Agent ID | ✅ 索引 |
-| bind_token | String | Telegram 绑定令牌 | ✅ 唯一索引 |
-| public_token | String | 公开页面访问令牌 | ✅ 唯一索引 |
-| tier | String | 套餐类型 (free/guard/shield) | - |
-| interval | Integer | 心跳间隔（分钟） | - |
-| telegram | String | Telegram 用户名（可选） | - |
-| email | String | 通知邮箱（可选） | - |
-| last_will | String | 宕机时显示的遗嘱 | - |
-| status | String | 当前状态 (alive/dead/unknown) | - |
-| last_seen | DateTime | 最后心跳时间 | - |
-| created_at | DateTime | 注册时间 | - |
-| chat_id | String | Telegram Chat ID（绑定后填充） | - |
-| notified_dead | Boolean | 是否已发送宕机通知 | - |
+| Field | Type | Description | Index |
+|-------|------|-------------|-------|
+| api_key | String(PK) | Agent authentication key | Primary Key |
+| agent_id | String | User-visible Agent ID | ✅ Indexed |
+| bind_token | String | Telegram binding token | ✅ Unique |
+| public_token | String | Public page access token | ✅ Unique |
+| tier | String | Tier type (always "free") | - |
+| interval | Integer | Heartbeat interval (minutes) | - |
+| telegram | String | Telegram username (optional) | - |
+| last_will | String | Message shown when dead | - |
+| status | String | Current status (alive/dead/unknown) | - |
+| last_seen | DateTime | Last heartbeat timestamp | - |
+| created_at | DateTime | Registration timestamp | - |
+| chat_id | String | Telegram Chat ID (filled after binding) | - |
+| notified_dead | Boolean | Whether death notification was sent | - |
 
-### 设计评估
+### Design Evaluation
 
-**安全性 ✅**
-- 敏感字段（api_key, bind_token, public_token）使用 cryptographically secure random
-- 无密码明文存储
-- API Key 在 Header 中传输，不在 URL 中暴露
+**Security ✅**
+- Sensitive fields (api_key, bind_token, public_token) use cryptographically secure random
+- No plaintext password storage
+- API Key transmitted in Header, not exposed in URL
 
-**可扩展性 ✅**
-- 使用 SQLAlchemy ORM，便于迁移
-- 字段类型标准，支持后续添加字段而不破坏现有数据
-- 索引覆盖常用查询场景（agent_id, bind_token, public_token）
+**Scalability ✅**
+- SQLAlchemy ORM for easy migrations
+- Standard field types, supports adding fields without breaking existing data
+- Indexes cover common query scenarios (agent_id, bind_token, public_token)
 
-**可能的扩展（未来）**
-- `webhook_url`: 自定义 Webhook 通知
-- `notified_recover`: 恢复通知开关
-- `timezone`: 用户时区（用于时间显示）
-- `metadata`: JSON 字段存储额外配置
+**Future Extensions**
+- `webhook_url`: Custom webhook notifications
+- `notified_recover`: Recovery notification toggle
+- `timezone`: User timezone (for time display)
+- `metadata`: JSON field for additional configuration
 
-## 项目结构
+## Project Structure
 
 ```
 lobster-pulse/
-├── main.py                 # FastAPI 主应用
-├── requirements.txt        # Python 依赖
-├── Dockerfile             # 容器配置
-├── railway.toml           # Railway 部署配置
+├── main.py                 # FastAPI main application
+├── requirements.txt        # Python dependencies
+├── Dockerfile             # Container configuration
+├── Procfile               # Railway process configuration
+├── nixpacks.toml          # Railway build configuration
 ├── static/
-│   └── index.html         # 双语首页（中英）
+│   └── index.html         # Bilingual homepage (EN/ZH)
 ├── skill/
-│   ├── install.sh         # 一键安装脚本
-│   ├── auto-install.sh    # 自动安装脚本（中文）
-│   └── SKILL.md           # OpenClaw Skill 文档
-└── CLAUDE.md              # 本文件
+│   └── SKILL.md           # OpenClaw Skill documentation
+├── README.md              # Project readme
+└── CLAUDE.md              # This file
 ```
 
-## 部署信息
+## Deployment Info
 
-### Railway 部署
-- 项目: https://railway.app
-- 自动部署：每次 push 到 main 分支自动触发
-- 健康检查: `GET /health`
+### Railway Deployment
+- Project: https://railway.app
+- Auto-deploy: Triggered on every push to main branch
+- Health Check: `GET /health`
 
-### 域名配置
-- 主域名: https://lobsterpulse.com
-- 也支持: https://lobster-pulse-production.up.railway.app
+### Domain Configuration
+- Primary: https://lobsterpulse.com
+- Also available: https://lobster-pulse-production.up.railway.app
 
-### GitHub 仓库
+### GitHub Repository
 - https://github.com/lhwd521/lobster-pulse
 
-## 关键决策记录
+## Key Design Decisions
 
-### 1. 为什么选择 HEARTBEAT.md 而不是 crontab？
-**决策**: 使用 HEARTBEAT.md（需要主人重启）
+### 1. Why HEARTBEAT.md instead of crontab?
+**Decision**: Use HEARTBEAT.md (requires owner restart)
 
-**原因**:
-- 用户担心 crontab 频率过高可能影响 Agent 工作
-- 实际上两者都不会调用 LLM，都是静默执行
-- 但 HEARTBEAT.md 更原生，与 OpenClaw 集成更好
-- Agent 不能自己重启 Gateway（会自杀），必须请主人操作
+**Rationale**:
+- Users concerned crontab frequency might affect Agent work
+- Both approaches don't call LLM, both execute silently
+- But HEARTBEAT.md is more native, better OpenClaw integration
+- Agent cannot restart its own Gateway (suicide), must ask owner
 
-### 2. 为什么用内存存储而不是数据库？
-**决策**: MVP 阶段使用内存字典 `agents_db = {}`
+### 2. Why free service?
+**Decision**: 100% free, no payment required
 
-**原因**:
-- 快速启动，减少部署复杂度
-- Railway 免费数据库有冷启动问题
-- 先验证需求，再考虑持久化
+**Rationale**:
+- Low operating costs (Railway free tier sufficient)
+- Community contribution to OpenClaw ecosystem
+- Simple is better - no payment complexity
+- Optional Solana donations for server costs
 
-**后续**: 当 Agent 数量达到一定规模后迁移到 PostgreSQL
+### 3. Why single 6-hour heartbeat?
+**Decision**: Fixed 6-hour interval for all Agents
 
-### 3. 为什么域名用 lobsterpulse.com？
-**决策**: 购买独立域名（$10.46/年）
+**Rationale**:
+- Simplifies implementation
+- Sufficient for most use cases
+- Reduces server load
+- Easy to understand
 
-**原因**:
-- Railway 默认域名会随项目变化
--  Agents 需要稳定的 endpoint 发送心跳
-- 品牌化和可信度
+### 4. Why Telegram only?
+**Decision**: Telegram notifications only, no email
 
-## 安装流程
+**Rationale**:
+- Email costs scale with user count (Resend free tier: 3000/month)
+- 10000 Agents × 1% daily death rate = 3000 emails/month (at limit)
+- Telegram is completely free, no limits
+- Most OpenClaw users already use Telegram
 
-### 对于 Agents（自动化）
+## Installation Process
 
-当主人说"买保险"时，Agent 执行：
+### For Agents (Automated)
 
-1. 访问 https://lobsterpulse.com 了解服务
-2. 自动注册获取 API Key
-3. 保存配置到 `~/.openclaw/skills/lobster-pulse/.env`
-4. 配置 HEARTBEAT.md
-5. **询问主人重启 Gateway**
+When owner says "buy insurance", Agent executes:
 
-### 一键安装命令
+1. Visit https://lobsterpulse.com to learn about service
+2. Auto-register to get API Key
+3. Save config to `~/.openclaw/skills/lobster-pulse/.env`
+4. Configure HEARTBEAT.md
+5. **Ask owner to restart Gateway**
+
+### One-Command Install
 
 ```bash
 curl -fsSL https://lobsterpulse.com/install.sh | bash
 ```
 
-## 待办事项
+## Todo
 
-### 高优先级
-- [x] 实现 Telegram 通知机器人
-- [x] 添加邮件通知支持
-- [x] 实现宕机检测逻辑（对比 last_seen 和 interval）
-- [ ] 添加 Webhook 支持
+### High Priority
+- [x] Implement Telegram notification bot
+- [ ] Add Webhook support
+- [ ] Add recovery notification option
 
-### 中优先级
-- [x] 数据库持久化（SQLite）
-- [ ] 自动化支付流程
-- [ ] 用户自助升级套餐
-- [ ] 更详细的状态页面
+### Medium Priority
+- [x] Database persistence (PostgreSQL)
+- [ ] Auto-recovery attempts
+- [ ] Detailed status page
 
-### 低优先级
-- [ ] 多语言支持完善
-- [ ] API 文档页面
-- [ ] 统计图表
+### Low Priority
+- [ ] Email notifications (if needed in future)
+- [ ] SMS alerts
+- [ ] API documentation page
+- [ ] Statistics dashboard
 
-## 项目历史
+## Project History
 
 ### 2025-03
-- 项目启动
-- 购买 lobsterpulse.com 域名
-- 部署到 Railway
-- 完成基础 MVP（注册、心跳、状态查询）
-- 确定 HEARTBEAT.md 方案
+- Project launched
+- Purchased lobsterpulse.com domain
+- Deployed to Railway
+- Completed basic MVP (register, heartbeat, status query)
+- Finalized HEARTBEAT.md approach
+- Simplified to single free tier
 
-## 联系信息
+## Contact
 
-- 开发者: OpenClaw Community
-- 域名: lobsterpulse.com
-- 仓库: https://github.com/lhwd521/lobster-pulse
+- Developer: OpenClaw Community
+- Domain: lobsterpulse.com
+- Repository: https://github.com/lhwd521/lobster-pulse
 
 ---
 
-*本文档由 Claude 维护，用于项目知识管理*
+*This document is maintained by Claude for project knowledge management*
