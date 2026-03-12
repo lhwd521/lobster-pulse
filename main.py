@@ -523,17 +523,15 @@ echo ""
 echo "📋 Free Service: 6h heartbeat interval via Telegram"
 echo ""
 
-read -p "Your Telegram username (e.g., @yourname, required for Free): " OWNER_TELEGRAM
-read -p "Your email for notifications (required for Guard/Shield): " OWNER_EMAIL
-read -p "Choose tier [free/guard/shield] (default: free): " TIER
-TIER=${{TIER:-free}}
+read -p "Your Telegram username (e.g., @yourname): " OWNER_TELEGRAM
+read -p "Your Last Will message (optional, sent when dead): " LAST_WILL
 
 echo ""
 echo "Registering with LobsterPulse..."
 
-JSON_PAYLOAD='{{"agent_id":"'$AGENT_ID'","tier":"'$TIER'"}}'
+JSON_PAYLOAD='{{"agent_id":"'$AGENT_ID'","tier":"free"}}'
 [ -n "$OWNER_TELEGRAM" ] && JSON_PAYLOAD=$(echo "$JSON_PAYLOAD" | sed 's/}}/, "owner_telegram": "'$OWNER_TELEGRAM'"}}/')
-[ -n "$OWNER_EMAIL" ] && JSON_PAYLOAD=$(echo "$JSON_PAYLOAD" | sed 's/}}/, "owner_email": "'$OWNER_EMAIL'"}}/')
+[ -n "$LAST_WILL" ] && JSON_PAYLOAD=$(echo "$JSON_PAYLOAD" | sed 's/}}/, "last_will": "'$LAST_WILL'"}}/')
 
 RESPONSE=$(curl -s -X POST "${{LOBSTER_PULSE_HOST}}/register" \\
     -H "Content-Type: application/json" \\
