@@ -23,14 +23,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database setup
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost/lobsterpulse")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 # Handle Railway's postgres:// format
-if DATABASE_URL.startswith("postgres://"):
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
+# Fallback to memory storage if no database
+USE_MEMORY_DB = not DATABASE_URL
+
 Base = declarative_base()
-engine = create_async_engine(DATABASE_URL, echo=False)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+if not USE_MEMORY_DB:
+    try:
+        engine = create_async_engine(DATABASE_URL, echo=False)
+        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        logger.info("Using PostgreSQL database")
+    except Exception as e:
+        logger.error(f"Failed to connect to database: {e}")
+        USE_MEMORY_DB = True
+
+if USE_MEMORY_DB:
+    logger.warning("Using in-memory storage (data will be lost on restart)")
+    # In-memory storage fallback
+    memory_agents = {}
 
 # Database Models
 class Agent(Base):
@@ -90,8 +106,12 @@ class UpdateAgentRequest(BaseModel):
 
 # Database dependency
 async def get_db():
-    async with async_session() as session:
-        yield session
+    if USE_MEMORY_DB:
+        # Memory mode - yield None, functions will use memory_agents
+        yield None
+    else:
+        async with async_session() as session:
+            yield session
 
 # Telegram Bot functions
 async def send_telegram_message(chat_id: str, text: str):
