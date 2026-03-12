@@ -424,13 +424,18 @@ async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db))
             logger.info(f"Executing /list for chat {chat_id}")
 
             try:
+                # 先发送一个测试消息确认能工作
+                await reply("🔍 正在查询...")
+
                 result = await db.execute(select(Agent).where(Agent.chat_id == chat_id))
                 agents = result.scalars().all()
-                logger.info(f"Found {len(agents)} agents")
+                logger.info(f"Found {len(agents)} agents for chat {chat_id}")
 
                 if not agents:
+                    logger.info("No agents found, sending help message")
                     await reply(
                         "❌ *未找到绑定的 Agent*\n\n"
+                        "你的 chat_id: `" + chat_id + "`\n\n"
                         "可能原因：\n"
                         "• 还没有绑定任何 Agent\n"
                         "• 绑定信息已丢失（请重新绑定）\n\n"
@@ -455,8 +460,8 @@ async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db))
                 logger.info(f"Sent list of {len(agents)} agents")
 
             except Exception as e:
-                logger.error(f"Error in /list: {e}")
-                await reply(f"❌ 查询出错：{str(e)[:100]}")
+                logger.error(f"Error in /list: {e}", exc_info=True)
+                await reply(f"❌ 查询出错：{str(e)[:200]}")
 
             return {"ok": True}
 
