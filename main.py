@@ -347,12 +347,13 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
             if agent:
                 agent.chat_id = chat_id
                 db.commit()
+                public_link = f"https://lobsterpulse.com/public/{agent.agent_id}?token={agent.public_token}"
                 await reply(
                     f"🦞 *LobsterPulse 绑定成功！*\n\n"
                     f"Agent: `{agent.agent_id}`\n"
                     f"套餐: {agent.tier.upper()}\n"
                     f"心跳间隔: {agent.interval}分钟\n\n"
-                    f"📄 公开状态页面：\n{agent.public_link}\n\n"
+                    f"📄 公开状态页面：\n{public_link}\n\n"
                     f"💡 使用 `/list` 查看所有绑定"
                 )
             else:
@@ -391,6 +392,7 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
 
             status_icon = "🟢 正常" if agent.status == "alive" else "🔴 宕机" if agent.status == "dead" else "⚪ 未知"
             last_seen = agent.last_seen.strftime("%Y-%m-%d %H:%M UTC") if agent.last_seen else "从未"
+            public_link = f"https://lobsterpulse.com/public/{agent.agent_id}?token={agent.public_token}"
 
             await reply(
                 f"*📊 Agent 状态*\n\n"
@@ -399,7 +401,7 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                 f"🕐 最后活跃: {last_seen}\n"
                 f"💎 套餐: {agent.tier.upper()}\n"
                 f"📧 邮箱: {agent.email or '未设置'}\n\n"
-                f"📄 *公开页面：*\n{agent.public_link}\n\n"
+                f"📄 *公开页面：*\n{public_link}\n\n"
                 f"💡 `/list` - 查看所有"
             )
             return {"ok": True}
