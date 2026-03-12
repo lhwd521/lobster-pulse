@@ -163,13 +163,23 @@ async def send_email_notification(to_email: str, subject: str, content: str):
 @app.on_event("startup")
 async def startup_event():
     """Create tables on startup"""
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database initialized")
-    except Exception as e:
-        logger.error(f"Database initialization failed: {e}", exc_info=True)
-        # Continue anyway, will retry on next request
+    if USE_MEMORY_DB:
+        logger.info("Using memory storage, skipping database init")
+    else:
+        try:
+            logger.info(f"Connecting to database with URL: {DATABASE_URL[:30]}...")
+            # Test connection first
+            async with engine.connect() as conn:
+                await conn.execute(select(1))
+            logger.info("Database connection successful")
+
+            # Create tables
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables created successfully")
+        except Exception as e:
+            logger.error(f"Database initialization failed: {e}", exc_info=True)
+            raise  # Don't start if database fails
 
     # Start background tasks
     try:
