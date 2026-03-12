@@ -576,11 +576,28 @@ LOBSTER_PULSE_HOST=${{LOBSTER_PULSE_HOST}}
 EOF
 
 echo ""
+echo "🔄 Testing heartbeat..."
+TEST_RESULT=$(curl -s -X POST "${{LOBSTER_PULSE_HOST}}/heartbeat" \
+    -H "X-API-Key: $API_KEY" \
+    -d '{{"status":"alive"}}' 2>/dev/null)
+
+if echo "$TEST_RESULT" | grep -q "acknowledged"; then
+    echo "✅ Test heartbeat successful! Service is working."
+else
+    echo "⚠️ Test failed, but configuration is saved."
+fi
+
+NEXT_HEARTBEAN=$(date -u -d '+6 hours' '+%Y-%m-%d %H:%M UTC' 2>/dev/null || date -u -v+6H '+%Y-%m-%d %H:%M UTC' 2>/dev/null || echo "6 hours from now")
+
+echo ""
 echo "🎉 Installation complete!"
 echo ""
 [ -n "$BIND_LINK" ] && echo "📱 Telegram: $BIND_LINK"
 [ -n "$PUBLIC_LINK" ] && echo "🌐 Public: $PUBLIC_LINK"
-echo "🔄 Restart Gateway: openclaw gateway restart"
+echo "🕐 Next heartbeat: $NEXT_HEARTBEAN"
+echo ""
+echo "⚠️  ACTION REQUIRED: Ask your owner to run:"
+echo "   openclaw gateway restart"
 echo ""
 echo "Your Agent is now insured. 🦞"
 '''
