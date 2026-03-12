@@ -2,8 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "uvicorn main:app --host 0.0.0.0 --port ${PORT}"
+startCommand = "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT}"
 healthcheckPath = "/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
-# Force rebuild: 2026-03-12-05-38
