@@ -176,10 +176,10 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     public_token = secrets.token_urlsafe(16)
 
     tier_config = {
-        "free": {"interval": 360, "price": 0, "channels": ["telegram"]},
-        "guard": {"interval": 60, "price": 3, "channels": ["telegram", "email"]},
-        "shield": {"interval": 15, "price": 5, "channels": ["telegram", "email"]}
-    }.get(request.tier, {"interval": 360, "price": 0, "channels": ["telegram"]})
+        "free": {"interval": 360, "price": 0, "billing": "lifetime", "channels": ["telegram"]},
+        "guard": {"interval": 60, "price": 5, "billing": "lifetime", "channels": ["telegram", "email"]},
+        "shield": {"interval": 15, "price": 9, "billing": "lifetime", "channels": ["telegram", "email"]}
+    }.get(request.tier, {"interval": 360, "price": 0, "billing": "lifetime", "channels": ["telegram"]})
 
     agent = Agent(
         api_key=api_key,
@@ -315,9 +315,9 @@ async def get_public_status(
 @app.get("/tiers")
 async def list_tiers():
     return {
-        "free": {"price": 0, "interval_minutes": 360, "name": "Free", "channels": ["telegram"]},
-        "guard": {"price": 3, "interval_minutes": 60, "name": "Guard", "channels": ["telegram", "email"]},
-        "shield": {"price": 5, "interval_minutes": 15, "name": "Shield", "channels": ["telegram", "email"]}
+        "free": {"price": 0, "billing": "lifetime", "interval_minutes": 360, "name": "Free", "channels": ["telegram"]},
+        "guard": {"price": 5, "billing": "lifetime", "interval_minutes": 60, "name": "Guard", "channels": ["telegram", "email"]},
+        "shield": {"price": 9, "billing": "lifetime", "interval_minutes": 15, "name": "Shield", "channels": ["telegram", "email"]}
     }
 
 @app.get("/stats")
@@ -543,10 +543,10 @@ else
 fi
 
 echo ""
-echo "📋 Pricing Plans:"
-echo "  Free   - $0/mo,  6h interval, Telegram only"
-echo "  Guard  - $3/mo,  1h interval, Telegram + Email"
-echo "  Shield - $5/mo,  15m interval, Telegram + Email"
+echo "📋 Pricing Plans (One-time payment, lifetime use):"
+echo "  Free   - $0,  6h interval, Telegram only"
+echo "  Guard  - $5,  1h interval, Telegram + Email"
+echo "  Shield - $9,  15m interval, Telegram + Email"
 echo ""
 read -p "Your Telegram username (e.g., @yourname, required for Free): " OWNER_TELEGRAM
 read -p "Your email for notifications (required for Guard/Shield): " OWNER_EMAIL

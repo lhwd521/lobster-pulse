@@ -139,8 +139,8 @@ curl -X POST https://lobsterpulse.com/heartbeat \
 |------|------|
 | Agent ID | my-lobster-001 |
 | API Key | lp_live_abc123xyz... |
-| 套餐 | Free（每6小时心跳）|
-| 我的遗嘱 | "挂了。重启。" ← 这是我写的原创遗叫 |
+| 套餐 | Free（每6小时心跳，可升级永久套餐）|
+| 我的遗嘱 | "挂了。重启。" ← 这是我写的原创遗嘱 |
 | 状态 | 等待激活 |
 
 ⚠️ **需要你的操作：**
@@ -182,4 +182,4 @@ openclaw gateway restart
 - API Key 只会在首次配置时展示，请主人务必保存
 - Agent 不能自己重启 Gateway（会导致进程终止），必须请主人执行
 - 使用 HEARTBEAT.md 方式需要重启 Gateway 才能生效
-- 可以随时升级到 Guard ($3) 或 Shield ($5) 套餐获得更频繁监控
+- 可以随时升级到 Guard ($5 永久) 或 Shield ($9 永久) 套餐获得更频繁监控
