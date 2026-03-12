@@ -137,14 +137,21 @@ async def send_email_notification(to_email: str, subject: str, content: str):
 @app.on_event("startup")
 async def startup_event():
     """Create tables on startup"""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database initialized")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}", exc_info=True)
+        # Continue anyway, will retry on next request
 
     # Start background tasks
-    if TELEGRAM_BOT_TOKEN or RESEND_API_KEY:
-        logger.info("Starting dead agent detection...")
-        asyncio.create_task(check_dead_agents())
+    try:
+        if TELEGRAM_BOT_TOKEN or RESEND_API_KEY:
+            logger.info("Starting dead agent detection...")
+            asyncio.create_task(check_dead_agents())
+    except Exception as e:
+        logger.error(f"Failed to start background tasks: {e}", exc_info=True)
 
 @app.get("/", response_class=FileResponse)
 async def root():
