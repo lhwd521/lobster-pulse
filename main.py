@@ -56,8 +56,10 @@ SessionLocal = None
 if DATABASE_URL:
     try:
         logger.info("Connecting to PostgreSQL...")
+        # Use pg8000 driver (pure Python, no libpq needed)
+        db_url = DATABASE_URL.replace("postgresql://", "postgresql+pg8000://")
         engine = create_engine(
-            DATABASE_URL,
+            db_url,
             echo=False,
             pool_pre_ping=True,
             pool_recycle=300,
