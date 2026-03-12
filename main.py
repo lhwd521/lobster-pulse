@@ -23,24 +23,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database setup
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-# Handle Railway's postgres:// format
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-
-# Fallback to memory storage if no database
-USE_MEMORY_DB = not DATABASE_URL
+# Fallback to memory storage if no database URL
+USE_MEMORY_DB = not DATABASE_URL or DATABASE_URL == ""
 
 Base = declarative_base()
 
 if not USE_MEMORY_DB:
     try:
-        engine = create_async_engine(DATABASE_URL, echo=False)
+        # Handle Railway's postgres:// format
+        if DATABASE_URL.startswith("postgres://"):
+            DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+
+        logger.info(f"Connecting to database...")
+        engine = create_async_engine(
+            DATABASE_URL,
+            echo=False,
+            pool_pre_ping=True,  # Verify connections before using
+            pool_recycle=300,    # Recycle connections after 5 minutes
+        )
         async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        logger.info("Using PostgreSQL database")
+        logger.info("Database engine created successfully")
     except Exception as e:
-        logger.error(f"Failed to connect to database: {e}")
+        logger.error(f"Failed to create database engine: {e}")
         USE_MEMORY_DB = True
 
 if USE_MEMORY_DB:
