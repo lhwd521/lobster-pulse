@@ -370,12 +370,11 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                 db.commit()
                 public_link = f"https://lobsterpulse.com/public/{agent.agent_id}?token={agent.public_token}"
                 await reply(
-                    f"🦞 *LobsterPulse Binding Successful!*\n\n"
+                    f"🦞 *Binding Successful!*\n\n"
                     f"Agent: `{agent.agent_id}`\n"
-                    f"Tier: {agent.tier.upper()}\n"
-                    f"Heartbeat: {agent.interval}min\n\n"
+                    f"Heartbeat: Every 6 hours\n\n"
                     f"📄 [Public Status]({public_link})\n\n"
-                    f"💡 Use `/list` to view all bindings"
+                    f"💡 Use `/list` to view all"
                 )
             else:
                 await reply("❌ Binding failed: Invalid token")
@@ -419,9 +418,7 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                 f"*📊 Agent Status*\n\n"
                 f"🆔 ID: `{agent.agent_id}`\n"
                 f"📊 Status: {status_icon}\n"
-                f"🕐 Last Seen: {last_seen}\n"
-                f"💎 Tier: {agent.tier.upper()}\n"
-                f"📧 Email: {agent.email or 'Not set'}\n\n"
+                f"🕐 Last Seen: {last_seen}\n\n"
                 f"📄 [Public Page]({public_link})\n\n"
                 f"💡 `/list` - View all"
             )
