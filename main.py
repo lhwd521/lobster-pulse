@@ -22,22 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database setup - Sync version (more reliable)
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-
-# Try to construct from Railway variables if not set
-if not DATABASE_URL:
-    pg_host = os.getenv("PGHOST") or "postgres.railway.internal"
-    pg_port = os.getenv("PGPORT") or "5432"
-    pg_user = os.getenv("PGUSER") or "postgres"
-    pg_password = os.getenv("PGPASSWORD") or ""
-    pg_db = os.getenv("PGDATABASE") or "railway"
-
-    if pg_password:
-        DATABASE_URL = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}"
-
-logger.info(f"DATABASE_URL present: {bool(DATABASE_URL)}")
-
+# Database setup - Use SQLite for simplicity and reliability
 Base = declarative_base()
 
 class Agent(Base):
@@ -58,38 +43,12 @@ class Agent(Base):
     chat_id = Column(String, nullable=True)
     notified_dead = Column(Boolean, default=False)
 
-# Initialize database
-engine = None
-SessionLocal = None
-
-if DATABASE_URL:
-    try:
-        logger.info(f"Connecting to database...")
-        engine = create_engine(
-            DATABASE_URL,
-            echo=False,
-            pool_pre_ping=True,
-            pool_recycle=300,
-        )
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        # Create tables
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database connected and tables created")
-    except Exception as e:
-        logger.error(f"Database connection failed: {e}")
-        engine = None
-
-if not engine:
-    logger.error("CRITICAL: Database not available!")
-    # Fallback to SQLite
-    try:
-        logger.info("Falling back to SQLite...")
-        engine = create_engine("sqlite:///./lobsterpulse.db", echo=False)
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        Base.metadata.create_all(bind=engine)
-        logger.info("SQLite database initialized")
-    except Exception as e:
-        logger.error(f"SQLite also failed: {e}")
+# Initialize SQLite database
+logger.info("Initializing SQLite database...")
+engine = create_engine("sqlite:///./lobsterpulse.db", echo=False)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base.metadata.create_all(bind=engine)
+logger.info("SQLite database initialized successfully")
 
 def get_db():
     if SessionLocal is None:
