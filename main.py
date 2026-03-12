@@ -25,9 +25,21 @@ logger = logging.getLogger(__name__)
 # Database setup
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
+# If DATABASE_URL not set, try to construct from Railway's variables
+if not DATABASE_URL:
+    pg_host = os.getenv("PGHOST") or os.getenv("POSTGRES_HOST")
+    pg_port = os.getenv("PGPORT") or os.getenv("POSTGRES_PORT", "5432")
+    pg_user = os.getenv("PGUSER") or os.getenv("POSTGRES_USER")
+    pg_password = os.getenv("PGPASSWORD") or os.getenv("POSTGRES_PASSWORD")
+    pg_db = os.getenv("PGDATABASE") or os.getenv("POSTGRES_DB", "railway")
+
+    if pg_host and pg_user and pg_password:
+        DATABASE_URL = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}"
+        logger.info("Constructed DATABASE_URL from Railway variables")
+
 logger.info(f"DATABASE_URL present: {bool(DATABASE_URL)}")
 if DATABASE_URL:
-    logger.info(f"DATABASE_URL starts with: {DATABASE_URL[:30]}...")
+    logger.info(f"DATABASE_URL starts with: {DATABASE_URL[:50]}...")
 
 # Fallback to memory storage if no database URL
 USE_MEMORY_DB = not DATABASE_URL or DATABASE_URL == ""
