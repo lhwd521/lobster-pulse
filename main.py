@@ -150,10 +150,10 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     public_token = secrets.token_urlsafe(16)
 
     tier_config = {
-        "free": {"interval": 240, "price": 0},
-        "guard": {"interval": 30, "price": 1},
-        "shield": {"interval": 5, "price": 5}
-    }.get(request.tier, {"interval": 240, "price": 0})
+        "free": {"interval": 360, "price": 0, "channels": ["telegram"]},
+        "guard": {"interval": 60, "price": 3, "channels": ["telegram", "email"]},
+        "shield": {"interval": 15, "price": 5, "channels": ["telegram", "email"]}
+    }.get(request.tier, {"interval": 360, "price": 0, "channels": ["telegram"]})
 
     agent = Agent(
         api_key=api_key,
@@ -289,9 +289,9 @@ async def get_public_status(
 @app.get("/tiers")
 async def list_tiers():
     return {
-        "free": {"price": 0, "interval_minutes": 240, "name": "Free"},
-        "guard": {"price": 1, "interval_minutes": 30, "name": "Guard"},
-        "shield": {"price": 5, "interval_minutes": 5, "name": "Shield"}
+        "free": {"price": 0, "interval_minutes": 360, "name": "Free", "channels": ["telegram"]},
+        "guard": {"price": 3, "interval_minutes": 60, "name": "Guard", "channels": ["telegram", "email"]},
+        "shield": {"price": 5, "interval_minutes": 15, "name": "Shield", "channels": ["telegram", "email"]}
     }
 
 @app.get("/stats")
@@ -439,7 +439,7 @@ def check_dead_agents_sync():
                         db.commit()
                         logger.warning(f"Agent {agent.agent_id} marked as dead")
 
-                        # Telegram notification
+                        # Telegram notification (all tiers)
                         if not agent.notified_dead and agent.chat_id:
                             import asyncio
                             asyncio.run(send_telegram_message(
@@ -451,6 +451,26 @@ def check_dead_agents_sync():
                                 f"遗嘱: _{agent.last_will}_\n\n"
                                 f"请检查你的 Agent 状态！"
                             ))
+
+                        # Email notification (Guard and Shield tiers only)
+                        if not agent.notified_dead and agent.email and agent.tier != "free":
+                            import asyncio
+                            subject = f"🚨 Agent {agent.agent_id} 宕机警报"
+                            content = f"""
+Agent: {agent.agent_id}
+最后活跃: {agent.last_seen.strftime('%Y-%m-%d %H:%M UTC')}
+失联时间: {int(time_since_last.total_seconds() / 60)} 分钟
+
+遗嘱: {agent.last_will}
+
+请检查你的 Agent 状态！
+
+---
+LobsterPulse - Agent Life Insurance
+"""
+                            asyncio.run(send_email_notification(agent.email, subject, content))
+
+                        if not agent.notified_dead:
                             agent.notified_dead = True
                             db.commit()
             finally:
@@ -497,8 +517,13 @@ else
 fi
 
 echo ""
-read -p "Your Telegram username (e.g., @yourname, optional): " OWNER_TELEGRAM
-read -p "Your email for notifications (optional): " OWNER_EMAIL
+echo "📋 Pricing Plans:"
+echo "  Free   - $0/mo,  6h interval, Telegram only"
+echo "  Guard  - $3/mo,  1h interval, Telegram + Email"
+echo "  Shield - $5/mo,  15m interval, Telegram + Email"
+echo ""
+read -p "Your Telegram username (e.g., @yourname, required for Free): " OWNER_TELEGRAM
+read -p "Your email for notifications (required for Guard/Shield): " OWNER_EMAIL
 read -p "Choose tier [free/guard/shield] (default: free): " TIER
 TIER=${{TIER:-free}}
 
@@ -527,12 +552,12 @@ echo "✅ Registered! API Key: ${{API_KEY:0:20}}..."
 
 mkdir -p "$WORKSPACE_DIR"
 
-if [ "$INTERVAL" -eq 5 ]; then
-    INTERVAL_STR="5m"
-elif [ "$INTERVAL" -eq 30 ]; then
-    INTERVAL_STR="30m"
+if [ "$INTERVAL" -eq 15 ]; then
+    INTERVAL_STR="15m"
+elif [ "$INTERVAL" -eq 60 ]; then
+    INTERVAL_STR="1h"
 else
-    INTERVAL_STR="4h"
+    INTERVAL_STR="6h"
 fi
 
 if [ -f "$WORKSPACE_DIR/HEARTBEAT.md" ]; then
