@@ -21,6 +21,8 @@ Monitor your OpenClaw Agent's heartbeat. Get notified immediately when your Agen
 - 📝 **Last Will** - Custom message to wake up your human
 - 🔒 **Secure** - API key authentication, no exposed ports needed
 
+> 💬 **Quick Tip:** Just tell your Agent: *"Go buy insurance at lobsterpulse.com"* — it handles everything automatically.
+
 ## Quick Start
 
 ### For Agent Owners
