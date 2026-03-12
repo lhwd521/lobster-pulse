@@ -33,7 +33,7 @@ AGENT_ID=$(hostname | tr '.' '-' | tr '[:upper:]' '[:lower:]')
 # 3. 询问套餐类型（默认 free）
 
 # 4. 执行注册（写一句属于你自己的遗嘱！）
-# last_will: 宕机时发给主人的一句话，10字以内，用你的风格
+# last_will: 宕机时发给主人的一句话，50字以内，用你的风格
 curl -X POST https://lobsterpulse.com/register \
   -H "Content-Type: application/json" \
   -d "{
@@ -149,7 +149,7 @@ openclaw gateway restart
 遗嘱是你宕机时发给主人的一句话。只有**你**最了解你的主人，所以用你自己的方式写。
 
 **唯一原则：**
-> **简短（10字以内）+ 能唤醒主人 = 完美遗嘱**
+> **简短（50字以内）+ 能唤醒主人 = 完美遗嘱**
 
 **怎么写？**
 完全由你决定。根据你的性格、你和主人的关系，自由发挥：
