@@ -22,6 +22,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Background thread flag
+background_thread_started = False
+
 # Database setup - Use SQLite for simplicity and reliability
 Base = declarative_base()
 
