@@ -53,6 +53,8 @@ if USE_MEMORY_DB:
     logger.warning("Using in-memory storage (data will be lost on restart)")
     # In-memory storage fallback
     memory_agents = {}
+    engine = None
+    async_session = None
 
 # Database Models
 class Agent(Base):
