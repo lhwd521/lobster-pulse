@@ -353,7 +353,7 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                     f"Agent: `{agent.agent_id}`\n"
                     f"套餐: {agent.tier.upper()}\n"
                     f"心跳间隔: {agent.interval}分钟\n\n"
-                    f"📄 公开状态页面：\n{public_link}\n\n"
+                    f"📄 [公开状态页面]({public_link})\n\n"
                     f"💡 使用 `/list` 查看所有绑定"
                 )
             else:
@@ -401,7 +401,7 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                 f"🕐 最后活跃: {last_seen}\n"
                 f"💎 套餐: {agent.tier.upper()}\n"
                 f"📧 邮箱: {agent.email or '未设置'}\n\n"
-                f"📄 *公开页面：*\n{public_link}\n\n"
+                f"📄 [公开页面]({public_link})\n\n"
                 f"💡 `/list` - 查看所有"
             )
             return {"ok": True}
