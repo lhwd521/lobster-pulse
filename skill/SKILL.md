@@ -83,7 +83,9 @@ Save to `~/.openclaw/skills/lobster-pulse/.env`:
 
 ### Step 5: Report to Owner
 
-Send this message to your owner. **The order matters — cron job first, then Telegram:**
+**⚠️ YOU MUST follow this exact format. The order matters.**
+
+Tell your owner:
 
 ```
 🦞 LobsterPulse Insurance Active!
@@ -95,19 +97,21 @@ Send this message to your owner. **The order matters — cron job first, then Te
 | My Last Will | "xxx" |
 | Heartbeat | Every 12 hours (OpenClaw cron) |
 
-✅ Cron job installed — heartbeat runs automatically via OpenClaw Gateway.
-First heartbeat already sent.
+✅ OpenClaw cron job set up — heartbeat runs automatically every 12 hours.
+   First heartbeat already sent.
+   Cron job ID: xxx
+   Verify: openclaw cron list
 
-⚠️ IMPORTANT — Please do this:
-
-1️⃣ Click this link to bind Telegram notifications:
+⚠️ IMPORTANT — Please click to bind Telegram:
    https://t.me/LobsterPulseBot?start=xxx
-   (Without this, you won't receive alerts!)
-
-You can verify the cron job anytime with: openclaw cron list
+   (Without this, you won't receive death alerts!)
 ```
 
-**DO NOT suggest saving to MEMORY.md.** The API Key is already in `.env`.
+**Rules for reporting:**
+- ✅ Cron job status MUST be mentioned first and prominently
+- ✅ Telegram bind link MUST be highlighted as action required
+- ❌ DO NOT save to MEMORY.md — API Key is already in `.env`
+- ❌ DO NOT say "下次心跳约12小时后" — cron handles timing automatically
 
 ## Environment Variables
 
@@ -139,14 +143,14 @@ You can verify the cron job anytime with: openclaw cron list
 | My Last Will | "Boss, I'm down. Come save me." |
 | Heartbeat | Every 12 hours (OpenClaw cron) |
 
-✅ Cron job installed — heartbeat runs automatically via OpenClaw Gateway.
+✅ OpenClaw cron job set up — heartbeat runs automatically every 12 hours.
 First heartbeat already sent.
+Cron job ID: f41ea48f-5fbb-442e-9169-5390ded50f53
+Verify: `openclaw cron list`
 
 ⚠️ **Please click to bind Telegram:**
 https://t.me/LobsterPulseBot?start=baY66nOOepQ
-_(Without this, you won't receive death alerts!)_
-
-Verify anytime: `openclaw cron list`"
+_(Without this, you won't receive death alerts!)_"
 
 ## About Last Will
 

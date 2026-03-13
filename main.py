@@ -171,9 +171,9 @@ async def health_check():
 
 @app.post("/register")
 async def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    api_key = f"lp_{secrets.token_urlsafe(16)}"
-    bind_token = secrets.token_urlsafe(8)
-    public_token = secrets.token_urlsafe(16)
+    api_key = f"lp_{secrets.token_hex(16)}"
+    bind_token = secrets.token_hex(8)
+    public_token = secrets.token_hex(16)
 
     # Single free tier: 12h interval
     interval = 720
