@@ -219,6 +219,8 @@ curl -fsSL https://lobsterpulse.com/install.sh | bash
 - Completed basic MVP (register, heartbeat, status query)
 - Finalized HEARTBEAT.md approach
 - Simplified to single free tier
+- Switched from HEARTBEAT.md to cron job
+- Changed heartbeat interval to 12 hours, alert after 25 hours
 
 ## Contact
 

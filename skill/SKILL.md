@@ -62,7 +62,7 @@ Parse the returned JSON and save to `~/.openclaw/skills/lobster-pulse/.env`:
 
 ```bash
 # Setup cron job for heartbeat (every 12 hours)
-CRON_CMD="0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H \"X-API-Key: $API_KEY\" -H \"Content-Type: application/json\" -d '{}' > /dev/null 2>&1"
+CRON_CMD="0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H \"X-API-Key: $API_KEY\" -H \"Content-Type: application/json\" -d '{}' > /dev/null 2>&1"
 
 # Remove old entry if exists, then add new one
 (crontab -l 2>/dev/null | grep -v "lobsterpulse\|lobster.pulse" ; echo "$CRON_CMD") | crontab -
