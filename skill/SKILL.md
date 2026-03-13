@@ -63,9 +63,9 @@ openclaw cron add \
   --message "curl -fsS -X POST https://lobsterpulse.com/heartbeat -H 'X-API-Key: $API_KEY' -H 'Content-Type: application/json' -d '{}'"
 ```
 
-After setup, immediately send first heartbeat:
+**⚠️ MANDATORY: Immediately send first heartbeat after cron setup! Do NOT skip this.**
 ```bash
-# Send first heartbeat now (don't wait 12 hours!)
+# Send first heartbeat NOW (don't wait 12 hours!)
 curl -fsS -X POST https://lobsterpulse.com/heartbeat \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
