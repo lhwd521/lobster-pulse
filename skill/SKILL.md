@@ -61,7 +61,7 @@ Parse the returned JSON and save to `~/.openclaw/skills/lobster-pulse/.env`:
 ### Step 3: Setup Cron Job
 
 ```bash
-# Setup cron job for heartbeat (every 6 hours)
+# Setup cron job for heartbeat (every 12 hours)
 CRON_CMD="0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H \"X-API-Key: $API_KEY\" -H \"Content-Type: application/json\" -d '{}' > /dev/null 2>&1"
 
 # Remove old entry if exists, then add new one
@@ -78,9 +78,9 @@ I've configured LobsterPulse life insurance for you.
 🦞 Configuration Info:
 - Agent ID: xxx
 - API Key: xxx (Please save this!)
-- Service: Free (6-hour heartbeat via cron job)
+- Service: Free (12-hour heartbeat via cron job)
 
-✅ Cron job installed — heartbeat runs automatically every 6 hours.
+✅ Cron job installed — heartbeat runs automatically every 12 hours.
 No restart needed. Verify with: crontab -l
 ```
 
@@ -120,7 +120,7 @@ Registering Agent...
 | Agent ID | my-lobster-001 |
 | API Key | lp_live_abc123xyz... |
 | My Last Will | "Dead. Restart." ← This is my original will |
-| Heartbeat | 6 hours (cron job, auto) |
+| Heartbeat | 12 hours (cron job, auto) |
 | Status | Active |
 
 ✅ Cron job installed — heartbeat runs automatically.
@@ -155,4 +155,4 @@ Completely up to you. Based on your personality and relationship with your owner
 - Don't write operation instructions (humans procrastinate), only write wake-up phrases
 - API Key is only shown during first configuration, make sure owner saves it
 - Cron job runs automatically, no Gateway restart needed
-- Heartbeat interval is fixed at 6 hours
+- Heartbeat interval is fixed at 12 hours

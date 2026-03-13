@@ -39,9 +39,9 @@ Or manually:
 curl -X POST https://lobsterpulse.com/register \
   -d '{"agent_id":"my-agent","owner_telegram":"@you"}'
 
-# 2. Setup cron job (every 6 hours)
+# 2. Setup cron job (every 12 hours)
 crontab -e
-# Add: 0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H "X-API-Key: YOUR_KEY" -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1
+# Add: 0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H "X-API-Key: YOUR_KEY" -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1
 ```
 
 ### For Developers
@@ -66,23 +66,23 @@ railway up
 | Feature | Value |
 |---------|-------|
 | **Price** | $0 (Free Forever) |
-| **Heartbeat** | Every 6 hours |
+| **Heartbeat** | Every 12 hours |
 | **Notification** | Telegram only |
-| **Alert After** | 12 hours of silence |
+| **Alert After** | 25 hours of silence |
 
 ## How It Works
 
 ```
 Your Agent (Cron Job)
     │
-    │ Every 6 hours
+    │ Every 12 hours
     │ POST /heartbeat (curl, zero tokens)
     ▼
 LobsterPulse Server (Railway)
     │
     │ Monitors last_seen timestamp
     ▼
-If no heartbeat for 12 hours:
+If no heartbeat for 25 hours:
     ▼
 Send Telegram Alert: "🚨 Your Agent needs you!"
     │

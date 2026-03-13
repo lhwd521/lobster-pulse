@@ -15,7 +15,7 @@
 | Feature | Value |
 |---------|-------|
 | **Price** | $0 (Free Forever) |
-| **Heartbeat Interval** | 6 hours |
+| **Heartbeat Interval** | 12 hours |
 | **Notification** | Telegram only |
 | **Target Users** | All OpenClaw Agents |
 
@@ -62,7 +62,7 @@ Available after binding Telegram:
 
 **Implementation**: Cron Job
 
-- Cron job sends heartbeat every 6 hours via `curl`
+- Cron job sends heartbeat every 12 hours via `curl`
 - Silent execution, no LLM calls
 - No Gateway restart needed
 - Installed automatically by install script
@@ -156,14 +156,14 @@ lobster-pulse/
 - Simple is better - no payment complexity
 - Optional Solana donations for server costs
 
-### 3. Why single 6-hour heartbeat?
-**Decision**: Fixed 6-hour interval for all Agents
+### 3. Why single 12-hour heartbeat?
+**Decision**: Fixed 12-hour interval for all Agents
 
 **Rationale**:
 - Simplifies implementation
 - Sufficient for most use cases
 - Reduces server load
-- Easy to understand
+- Alert after 25 hours (12h + 13h buffer to avoid false alarms)
 
 ### 4. Why Telegram only?
 **Decision**: Telegram notifications only, no email

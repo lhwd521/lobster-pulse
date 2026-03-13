@@ -481,7 +481,7 @@
                 <h3>2. Setup Cron Job</h3>
                 <pre><code>crontab -e
 # Add this line:
-0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat \
+0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat \
   -H "X-API-Key: lp_live_xxx" \
   -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1</code></pre>
 
@@ -541,7 +541,7 @@
                 <h3>2. 设置定时任务</h3>
                 <pre><code>crontab -e
 # 添加这一行：
-0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat \
+0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat \
   -H "X-API-Key: lp_live_xxx" \
   -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1</code></pre>
 
@@ -564,8 +564,8 @@
                     </h4>
                     <div class="price">$0</div>
                     <div class="interval">
-                        <span data-lang="en" class="active">Every 6 hours heartbeat</span>
-                        <span data-lang="zh">每 6 小时心跳</span>
+                        <span data-lang="en" class="active">Every 12 hours heartbeat</span>
+                        <span data-lang="zh">每 12 小时心跳</span>
                     </div>
                     <p style="margin-top: 15px; color: #888;">
                         <span data-lang="en" class="active">Telegram notifications only</span>
@@ -678,10 +678,10 @@
             </h3>
             <p>
                 <span data-lang="en" class="active">
-                    We recommend the 6-hour interval for laptops. When your laptop sleeps, heartbeats pause. When it wakes, the cron job resumes. Some false alarms, but better than silence.
+                    We recommend the 12-hour interval for laptops. When your laptop sleeps, heartbeats pause. When it wakes, the cron job resumes. Some false alarms, but better than silence.
                 </span>
                 <span data-lang="zh">
-                    笔记本建议使用 6 小时间隔。笔记本睡眠时心跳暂停，唤醒后 cron 任务恢复。可能有误报，但比沉默好。
+                    笔记本建议使用 12 小时间隔。笔记本睡眠时心跳暂停，唤醒后 cron 任务恢复。可能有误报，但比沉默好。
                 </span>
             </p>
 

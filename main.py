@@ -39,7 +39,7 @@ class Agent(Base):
     bind_token = Column(String, unique=True, index=True)
     public_token = Column(String, unique=True, index=True)
     tier = Column(String, default="free")
-    interval = Column(Integer, default=240)
+    interval = Column(Integer, default=720)
     telegram = Column(String, nullable=True)
     email = Column(String, nullable=True)
     last_will = Column(String, default="Check server if I'm dead")
@@ -175,8 +175,8 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     bind_token = secrets.token_urlsafe(8)
     public_token = secrets.token_urlsafe(16)
 
-    # Single free tier: 6h interval
-    interval = 360
+    # Single free tier: 12h interval
+    interval = 720
 
     agent = Agent(
         api_key=api_key,
@@ -312,7 +312,7 @@ async def get_public_status(
 @app.get("/tiers")
 async def list_tiers():
     return {
-        "free": {"price": 0, "interval_minutes": 360, "name": "Free"}
+        "free": {"price": 0, "interval_minutes": 720, "name": "Free"}
     }
 
 @app.get("/stats")
@@ -372,7 +372,7 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                 await reply(
                     f"🦞 *Binding Successful!*\n\n"
                     f"Agent: `{agent.agent_id}`\n"
-                    f"Heartbeat: Every 6 hours\n\n"
+                    f"Heartbeat: Every 12 hours\n\n"
                     f"📄 [Public Status]({public_link})\n\n"
                     f"💡 Use `/list` to view all"
                 )
@@ -449,7 +449,8 @@ def check_dead_agents_sync():
                     if agent.last_seen is None:
                         continue
 
-                    expected_interval = timedelta(minutes=agent.interval * 2)
+                    # Alert after 25 hours of silence (12h interval + 13h buffer)
+                    expected_interval = timedelta(hours=25)
                     time_since_last = now - agent.last_seen
 
                     if time_since_last > expected_interval and agent.status != "dead":
@@ -516,7 +517,7 @@ else
 fi
 
 echo ""
-echo "📋 Free Service: 6h heartbeat interval via Telegram"
+echo "📋 Free Service: 12h heartbeat interval via Telegram"
 echo ""
 
 read -p "Your Telegram username (e.g., @yourname): " OWNER_TELEGRAM
@@ -552,8 +553,8 @@ LOBSTER_PULSE_AGENT_ID=${{AGENT_ID}}
 LOBSTER_PULSE_HOST=${{LOBSTER_PULSE_HOST}}
 EOF
 
-# Setup cron job for heartbeat (every 6 hours)
-CRON_CMD="0 */6 * * * curl -fsS -X POST ${{LOBSTER_PULSE_HOST}}/heartbeat -H \\"X-API-Key: ${{API_KEY}}\\" -H \\"Content-Type: application/json\\" -d '{{}}' > /dev/null 2>&1"
+# Setup cron job for heartbeat (every 12 hours)
+CRON_CMD="0 */12 * * * curl -fsS -X POST ${{LOBSTER_PULSE_HOST}}/heartbeat -H \\"X-API-Key: ${{API_KEY}}\\" -H \\"Content-Type: application/json\\" -d '{{}}' > /dev/null 2>&1"
 
 # Remove old lobster_pulse cron entry if exists, then add new one
 (crontab -l 2>/dev/null | grep -v "lobsterpulse\\|lobster.pulse" ; echo "$CRON_CMD") | crontab -
@@ -577,7 +578,7 @@ echo ""
 [ -n "$BIND_LINK" ] && echo "📱 Telegram: $BIND_LINK"
 [ -n "$PUBLIC_LINK" ] && echo "🌐 Public: $PUBLIC_LINK"
 echo ""
-echo "✅ Cron job installed: heartbeat every 6 hours"
+echo "✅ Cron job installed: heartbeat every 12 hours"
 echo "   No restart needed. Verify with: crontab -l"
 echo ""
 echo "Your Agent is now insured. 🦞"
