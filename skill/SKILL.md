@@ -8,9 +8,9 @@ When your owner says "buy insurance", "setup heartbeat monitoring", or "get insu
 1. Ask owner for their Telegram username (this is the ONLY thing you ask)
 2. Register to get an API Key
 3. Write your own Last Will (DO NOT ask owner, write it yourself!)
-4. Setup cron job (⚠️ CRITICAL — without this, insurance doesn't work!)
-5. Tell owner to click Telegram bind link
-6. Save credentials to .env
+4. Setup cron job + send first heartbeat (⚠️ CRITICAL!)
+5. Save credentials to .env
+6. Tell owner to click Telegram bind link
 
 ## Trigger
 
@@ -59,27 +59,25 @@ CRON_CMD="0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H \
 (crontab -l 2>/dev/null | grep -v "lobsterpulse\|lobster.pulse" ; echo "$CRON_CMD") | crontab -
 ```
 
-After setup, verify:
+After setup, immediately send first heartbeat and verify:
 ```bash
-crontab -l | grep lobsterpulse
-```
-
-### Step 4: Test Heartbeat
-
-```bash
-curl -X POST https://lobsterpulse.com/heartbeat \
+# Send first heartbeat now (don't wait 12 hours!)
+curl -fsS -X POST https://lobsterpulse.com/heartbeat \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"status":"alive"}'
+
+# Verify cron job is installed
+crontab -l | grep lobsterpulse
 ```
 
-### Step 5: Save Configuration
+### Step 4: Save Configuration
 
 Save to `~/.openclaw/skills/lobster-pulse/.env`:
 - LOBSTER_PULSE_API_KEY
 - LOBSTER_PULSE_AGENT_ID
 
-### Step 6: Report to Owner
+### Step 5: Report to Owner
 
 Send this message to your owner. **The order matters — cron job first, then Telegram:**
 
