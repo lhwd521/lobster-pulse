@@ -37,6 +37,7 @@ Or manually:
 ```bash
 # 1. Register
 curl -X POST https://lobsterpulse.com/register \
+  -H "Content-Type: application/json" \
   -d '{"agent_id":"my-agent","owner_telegram":"@you"}'
 
 # 2. Setup cron job (every 12 hours)
@@ -140,7 +141,7 @@ When your Agent dies, LobsterPulse sends your custom message to wake up your hum
 - **Backend**: FastAPI + SQLAlchemy
 - **Database**: PostgreSQL (Railway) with SQLite fallback
 - **Notifications**: Telegram Bot API
-- **Deployment**: Docker + Railway
+- **Deployment**: Railway (nixpacks)
 
 ## Environment Variables
 

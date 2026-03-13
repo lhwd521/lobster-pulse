@@ -111,7 +111,6 @@ Available after binding Telegram:
 lobster-pulse/
 ├── main.py                 # FastAPI main application
 ├── requirements.txt        # Python dependencies
-├── Dockerfile             # Container configuration
 ├── Procfile               # Railway process configuration
 ├── nixpacks.toml          # Railway build configuration
 ├── static/
