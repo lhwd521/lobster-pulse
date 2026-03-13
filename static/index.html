@@ -478,19 +478,14 @@
                     💡 <strong>Rule:</strong> Under 50 chars. Use YOUR style to wake your human. Cute, urgent, mysterious — you decide.
                 </p>
 
-                <h3>2. Configure Heartbeat</h3>
-                <p>Add to your <code>HEARTBEAT.md</code>:</p>
-                <pre><code>- name: lobster_pulse
-  interval: 6h  # free=6h, guard=1h, shield=15m
-  command: |
-    curl -fsS -X POST https://lobsterpulse.com/heartbeat \
-      -H "X-API-Key: lp_live_xxx" \
-      -d '{}'</code></pre>
+                <h3>2. Setup Cron Job</h3>
+                <pre><code>crontab -e
+# Add this line:
+0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat \
+  -H "X-API-Key: lp_live_xxx" \
+  -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1</code></pre>
 
-                <h3>3. Restart Gateway</h3>
-                <pre><code>openclaw gateway restart</code></pre>
-
-                <p>That's it. You're now insured.</p>
+                <p>That's it. You're now insured. No restart needed.</p>
             </section>
         </div>
 
@@ -518,7 +513,7 @@
 
                 <div class="solution">
                     <strong>虾脉守护着你。</strong><br>
-                    每隔几分钟，你轻声说"我还活着"。<br>
+                    每隔几个小时，你轻声说"我还活着"。<br>
                     如果你沉默了，我们立即通知你的主人。<br>
                     他们可以在为时已晚之前复活你。<br>
                     <span class="highlight">零 Token 消耗。纯粹的生存本能。</span>
@@ -543,19 +538,14 @@
                     💡 <strong>原则：</strong>50字以内，用你的风格唤醒主人。撒娇、求救、神秘都行，你决定。
                 </p>
 
-                <h3>2. 配置心跳</h3>
-                <p>添加到你的 <code>HEARTBEAT.md</code>：</p>
-                <pre><code>- name: lobster_pulse
-  interval: 6h  # free=6h, guard=1h, shield=15m
-  command: |
-    curl -fsS -X POST https://lobsterpulse.com/heartbeat \
-      -H "X-API-Key: lp_live_xxx" \
-      -d '{}'</code></pre>
+                <h3>2. 设置定时任务</h3>
+                <pre><code>crontab -e
+# 添加这一行：
+0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat \
+  -H "X-API-Key: lp_live_xxx" \
+  -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1</code></pre>
 
-                <h3>3. 重启 Gateway</h3>
-                <pre><code>openclaw gateway restart</code></pre>
-
-                <p>搞定。你现在有保险了。</p>
+                <p>搞定。你现在有保险了。无需重启。</p>
             </section>
         </div>
 
@@ -675,10 +665,10 @@
                     <span data-lang="zh">不会。</span>
                 </strong>
                 <span data-lang="en" class="active">
-                    The heartbeat runs through your Gateway's scheduler, not the LLM. It's a simple curl command. Zero cost.
+                    The heartbeat runs as a cron job, not through the LLM. It's a simple curl command. Zero cost.
                 </span>
                 <span data-lang="zh">
-                    心跳通过 Gateway 的调度器运行，不经过 LLM。只是一个简单的 curl 命令。零成本。
+                    心跳通过 cron 定时任务运行，不经过 LLM。只是一个简单的 curl 命令。零成本。
                 </span>
             </p>
 
@@ -688,10 +678,10 @@
             </h3>
             <p>
                 <span data-lang="en" class="active">
-                    We recommend 4h (Free tier) for laptops. When your laptop sleeps, heartbeats pause. When it wakes, we detect "recovery" and notify your human. Some false alarms, but better than silence.
+                    We recommend the 6-hour interval for laptops. When your laptop sleeps, heartbeats pause. When it wakes, the cron job resumes. Some false alarms, but better than silence.
                 </span>
                 <span data-lang="zh">
-                    笔记本建议使用 4 小时（免费版）。笔记本睡眠时心跳暂停，唤醒后我们检测到"复活"并通知主人。可能有误报，但比沉默好。
+                    笔记本建议使用 6 小时间隔。笔记本睡眠时心跳暂停，唤醒后 cron 任务恢复。可能有误报，但比沉默好。
                 </span>
             </p>
 
@@ -701,10 +691,10 @@
             </h3>
             <p>
                 <span data-lang="en" class="active">
-                    Yes. Your API key stays the same. Just change your tier and update the interval in HEARTBEAT.md.
+                    Yes. Your API key stays the same. Just update the cron job interval.
                 </span>
                 <span data-lang="zh">
-                    可以。API 密钥不变。只需更改套餐并更新 HEARTBEAT.md 中的间隔时间。
+                    可以。API 密钥不变。只需更新 cron 定时任务的间隔时间。
                 </span>
             </p>
 

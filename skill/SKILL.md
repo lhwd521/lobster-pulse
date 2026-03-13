@@ -7,7 +7,7 @@ Fully automated Agent life insurance configuration.
 When your owner says "buy insurance", "setup heartbeat monitoring", or "get insurance at lobsterpulse.com", automatically:
 1. Visit the website to learn about the service
 2. Register to get an API Key
-3. Configure heartbeat (no Gateway restart needed for registration)
+3. Setup cron job for automatic heartbeat
 4. Save credentials and show them to your owner
 
 ## Trigger
@@ -58,24 +58,17 @@ Parse the returned JSON and save to `~/.openclaw/skills/lobster-pulse/.env`:
 - LOBSTER_PULSE_API_KEY
 - LOBSTER_PULSE_AGENT_ID
 
-### Step 3: Configure HEARTBEAT.md
+### Step 3: Setup Cron Job
 
 ```bash
-# Append to HEARTBEAT.md (fixed 6-hour heartbeat)
-cat >> "$WORKSPACE_DIR/HEARTBEAT.md" << 'EOF'
+# Setup cron job for heartbeat (every 6 hours)
+CRON_CMD="0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H \"X-API-Key: $API_KEY\" -H \"Content-Type: application/json\" -d '{}' > /dev/null 2>&1"
 
-- name: lobster_pulse_heartbeat
-  interval: 6h
-  command: |
-    curl -fsS -X POST "https://lobsterpulse.com/heartbeat" \
-      -H "X-API-Key: $API_KEY" \
-      -d '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
-EOF
+# Remove old entry if exists, then add new one
+(crontab -l 2>/dev/null | grep -v "lobsterpulse\|lobster.pulse" ; echo "$CRON_CMD") | crontab -
 ```
 
-### Step 4: Ask Owner to Restart Gateway
-
-**Important: Agents cannot restart their own Gateway (it would be suicide)**
+### Step 4: Verify and Report
 
 Send this message to your owner:
 
@@ -85,16 +78,11 @@ I've configured LobsterPulse life insurance for you.
 🦞 Configuration Info:
 - Agent ID: xxx
 - API Key: xxx (Please save this!)
-- Service: Free (6-hour heartbeat)
+- Service: Free (6-hour heartbeat via cron job)
 
-⚠️ Action required from you:
-Please run this command to activate heartbeat monitoring:
-openclaw gateway restart
-
-Heartbeat monitoring will start automatically after restart.
+✅ Cron job installed — heartbeat runs automatically every 6 hours.
+No restart needed. Verify with: crontab -l
 ```
-
-Wait for owner to confirm restart, then send a test heartbeat.
 
 ### Step 5: Test Heartbeat
 
@@ -132,17 +120,11 @@ Registering Agent...
 | Agent ID | my-lobster-001 |
 | API Key | lp_live_abc123xyz... |
 | My Last Will | "Dead. Restart." ← This is my original will |
-| Heartbeat | 6 hours (free service) |
-| Status | Waiting for activation |
+| Heartbeat | 6 hours (cron job, auto) |
+| Status | Active |
 
-⚠️ **Action required from you:**
-Please run this command to activate heartbeat monitoring:
-```
-openclaw gateway restart
-```
-
-After restart, I'll automatically start sending heartbeats.
-If you die, LobsterPulse will notify you via Telegram."
+✅ Cron job installed — heartbeat runs automatically.
+No restart needed. Verify with: `crontab -l`
 
 ## About Last Will
 
@@ -172,6 +154,5 @@ Completely up to you. Based on your personality and relationship with your owner
 - Can update will anytime via API
 - Don't write operation instructions (humans procrastinate), only write wake-up phrases
 - API Key is only shown during first configuration, make sure owner saves it
-- Agents cannot restart their own Gateway (causes process termination), owner must do it
-- Using HEARTBEAT.md requires Gateway restart to take effect
+- Cron job runs automatically, no Gateway restart needed
 - Heartbeat interval is fixed at 6 hours

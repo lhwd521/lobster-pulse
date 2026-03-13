@@ -504,7 +504,6 @@ set -e
 
 LOBSTER_PULSE_HOST="https://{host}"
 CONFIG_DIR="${{HOME}}/.openclaw"
-WORKSPACE_DIR="${{CONFIG_DIR}}/workspace"
 
 echo "🦞 LobsterPulse Agent Installer"
 echo "================================"
@@ -546,28 +545,6 @@ fi
 
 echo "✅ Registered! API Key: ${{API_KEY:0:20}}..."
 
-mkdir -p "$WORKSPACE_DIR"
-
-# Fixed 6h interval for free tier
-INTERVAL_STR="6h"
-
-if [ -f "$WORKSPACE_DIR/HEARTBEAT.md" ]; then
-    grep -v "lobster_pulse" "$WORKSPACE_DIR/HEARTBEAT.md" > "$WORKSPACE_DIR/HEARTBEAT.md.tmp" || true
-    mv "$WORKSPACE_DIR/HEARTBEAT.md.tmp" "$WORKSPACE_DIR/HEARTBEAT.md"
-fi
-
-cat >> "$WORKSPACE_DIR/HEARTBEAT.md" << EOF
-
-- name: lobster_pulse_heartbeat
-  interval: ${{INTERVAL_STR}}
-  command: |
-    curl -fsS -m 30 --retry 3 \\
-      -X POST "${{LOBSTER_PULSE_HOST}}/heartbeat" \\
-      -H "X-API-Key: ${{API_KEY}}" \\
-      -d '{{\'"'"'ts\'"'"':\'"'"'"'"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\'"'"'"'"'}}' \\
-      > /dev/null 2>&1 || echo "[$(date)] Heartbeat failed" >> ~/lobster-pulse.log
-EOF
-
 mkdir -p "$CONFIG_DIR/skills/lobster-pulse"
 cat > "$CONFIG_DIR/skills/lobster-pulse/.env" << EOF
 LOBSTER_PULSE_API_KEY=${{API_KEY}}
@@ -575,19 +552,24 @@ LOBSTER_PULSE_AGENT_ID=${{AGENT_ID}}
 LOBSTER_PULSE_HOST=${{LOBSTER_PULSE_HOST}}
 EOF
 
+# Setup cron job for heartbeat (every 6 hours)
+CRON_CMD="0 */6 * * * curl -fsS -X POST ${{LOBSTER_PULSE_HOST}}/heartbeat -H \\"X-API-Key: ${{API_KEY}}\\" -H \\"Content-Type: application/json\\" -d '{{}}' > /dev/null 2>&1"
+
+# Remove old lobster_pulse cron entry if exists, then add new one
+(crontab -l 2>/dev/null | grep -v "lobsterpulse\\|lobster.pulse" ; echo "$CRON_CMD") | crontab -
+
 echo ""
 echo "🔄 Testing heartbeat..."
-TEST_RESULT=$(curl -s -X POST "${{LOBSTER_PULSE_HOST}}/heartbeat" \
-    -H "X-API-Key: $API_KEY" \
+TEST_RESULT=$(curl -s -X POST "${{LOBSTER_PULSE_HOST}}/heartbeat" \\
+    -H "X-API-Key: $API_KEY" \\
+    -H "Content-Type: application/json" \\
     -d '{{"status":"alive"}}' 2>/dev/null)
 
 if echo "$TEST_RESULT" | grep -q "acknowledged"; then
-    echo "✅ Test heartbeat successful! Service is working."
+    echo "✅ Test heartbeat successful!"
 else
     echo "⚠️ Test failed, but configuration is saved."
 fi
-
-NEXT_HEARTBEAN=$(date -u -d '+6 hours' '+%Y-%m-%d %H:%M UTC' 2>/dev/null || date -u -v+6H '+%Y-%m-%d %H:%M UTC' 2>/dev/null || echo "6 hours from now")
 
 echo ""
 echo "🎉 Installation complete!"
@@ -595,14 +577,8 @@ echo ""
 [ -n "$BIND_LINK" ] && echo "📱 Telegram: $BIND_LINK"
 [ -n "$PUBLIC_LINK" ] && echo "🌐 Public: $PUBLIC_LINK"
 echo ""
-echo "⚠️  IMPORTANT - Gateway restart required!"
-echo "   Without restart, heartbeat will NOT run automatically."
-echo ""
-echo "   Ask your owner to run:"
-echo "   openclaw gateway restart"
-echo ""
-echo "   After restart: First heartbeat within 6 hours"
-echo "   Next scheduled: $NEXT_HEARTBEAN"
+echo "✅ Cron job installed: heartbeat every 6 hours"
+echo "   No restart needed. Verify with: crontab -l"
 echo ""
 echo "Your Agent is now insured. 🦞"
 '''

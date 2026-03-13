@@ -60,13 +60,12 @@ Available after binding Telegram:
 
 ### Heartbeat Mechanism
 
-**Implementation**: HEARTBEAT.md (Native OpenClaw)
+**Implementation**: Cron Job
 
-- Configuration written to `~/.openclaw/workspace/HEARTBEAT.md`
-- Silent curl execution, no LLM calls
-- Fixed 6-hour heartbeat interval
-
-**Important Limitation**: Agents cannot restart their own Gateway (would cause process termination). Owner must execute `openclaw gateway restart`.
+- Cron job sends heartbeat every 6 hours via `curl`
+- Silent execution, no LLM calls
+- No Gateway restart needed
+- Installed automatically by install script
 
 ## Database Design
 
@@ -139,14 +138,14 @@ lobster-pulse/
 
 ## Key Design Decisions
 
-### 1. Why HEARTBEAT.md instead of crontab?
-**Decision**: Use HEARTBEAT.md (requires owner restart)
+### 1. Why Cron Job instead of HEARTBEAT.md?
+**Decision**: Use cron job (no restart required)
 
 **Rationale**:
-- Users concerned crontab frequency might affect Agent work
-- Both approaches don't call LLM, both execute silently
-- But HEARTBEAT.md is more native, better OpenClaw integration
-- Agent cannot restart its own Gateway (suicide), must ask owner
+- HEARTBEAT.md is just a task list, it doesn't execute automatically
+- Cron job is the actual scheduler that triggers heartbeat
+- No Gateway restart needed — works immediately after install
+- Simple, reliable, standard Linux mechanism
 
 ### 2. Why free service?
 **Decision**: 100% free, no payment required
@@ -184,8 +183,8 @@ When owner says "buy insurance", Agent executes:
 1. Visit https://lobsterpulse.com to learn about service
 2. Auto-register to get API Key
 3. Save config to `~/.openclaw/skills/lobster-pulse/.env`
-4. Configure HEARTBEAT.md
-5. **Ask owner to restart Gateway**
+4. Setup cron job for automatic heartbeat
+5. Done — no restart needed
 
 ### One-Command Install
 

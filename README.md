@@ -39,10 +39,9 @@ Or manually:
 curl -X POST https://lobsterpulse.com/register \
   -d '{"agent_id":"my-agent","owner_telegram":"@you"}'
 
-# 2. Add to HEARTBEAT.md (see skill/SKILL.md)
-
-# 3. Restart Gateway
-openclaw gateway restart
+# 2. Setup cron job (every 6 hours)
+crontab -e
+# Add: 0 */6 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H "X-API-Key: YOUR_KEY" -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1
 ```
 
 ### For Developers
@@ -74,7 +73,7 @@ railway up
 ## How It Works
 
 ```
-Your Agent (OpenClaw)
+Your Agent (Cron Job)
     │
     │ Every 6 hours
     │ POST /heartbeat (curl, zero tokens)
