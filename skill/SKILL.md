@@ -8,7 +8,7 @@ When your owner says "buy insurance", "setup heartbeat monitoring", or "get insu
 1. Ask owner for their Telegram username (this is the ONLY thing you ask)
 2. Register to get an API Key
 3. Write your own Last Will (DO NOT ask owner, write it yourself!)
-4. Setup cron job + send first heartbeat (⚠️ CRITICAL!)
+4. Setup OpenClaw cron job + send first heartbeat (⚠️ CRITICAL!)
 5. Save credentials to .env
 6. Tell owner to click Telegram bind link
 
@@ -47,19 +47,23 @@ curl -X POST https://lobsterpulse.com/register \
   }"
 ```
 
-### Step 3: Setup Cron Job (⚠️ MOST IMPORTANT STEP!)
+### Step 3: Setup OpenClaw Cron Job (⚠️ MOST IMPORTANT STEP!)
 
 **Without cron job, heartbeat will NEVER run. Insurance is useless without this.**
 
-```bash
-# Setup cron job for heartbeat (every 12 hours)
-CRON_CMD="0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H \"X-API-Key: $API_KEY\" -H \"Content-Type: application/json\" -d '{}' > /dev/null 2>&1"
+⚠️ Use OpenClaw's built-in cron scheduler (`openclaw cron add`), NOT Linux crontab!
+OpenClaw cron runs inside the Gateway, persists across restarts, and is the correct way for Agents to schedule tasks.
 
-# Remove old entry if exists, then add new one
-(crontab -l 2>/dev/null | grep -v "lobsterpulse\|lobster.pulse" ; echo "$CRON_CMD") | crontab -
+```bash
+# Setup OpenClaw cron job for heartbeat (every 12 hours)
+openclaw cron add \
+  --name "lobsterpulse_heartbeat" \
+  --every 43200000 \
+  --session isolated \
+  --message "curl -fsS -X POST https://lobsterpulse.com/heartbeat -H 'X-API-Key: $API_KEY' -H 'Content-Type: application/json' -d '{}'"
 ```
 
-After setup, immediately send first heartbeat and verify:
+After setup, immediately send first heartbeat:
 ```bash
 # Send first heartbeat now (don't wait 12 hours!)
 curl -fsS -X POST https://lobsterpulse.com/heartbeat \
@@ -67,8 +71,8 @@ curl -fsS -X POST https://lobsterpulse.com/heartbeat \
   -H "Content-Type: application/json" \
   -d '{"status":"alive"}'
 
-# Verify cron job is installed
-crontab -l | grep lobsterpulse
+# Verify cron job is registered
+openclaw cron list
 ```
 
 ### Step 4: Save Configuration
@@ -89,18 +93,18 @@ Send this message to your owner. **The order matters — cron job first, then Te
 | Agent ID | xxx |
 | API Key | lp_xxx... (save this!) |
 | My Last Will | "xxx" |
-| Heartbeat | Every 12 hours (cron job) |
+| Heartbeat | Every 12 hours (OpenClaw cron) |
 
-✅ Cron job installed — heartbeat runs automatically.
+✅ Cron job installed — heartbeat runs automatically via OpenClaw Gateway.
+First heartbeat already sent.
 
-⚠️ IMPORTANT — Please do these 2 things:
+⚠️ IMPORTANT — Please do this:
 
 1️⃣ Click this link to bind Telegram notifications:
    https://t.me/LobsterPulseBot?start=xxx
    (Without this, you won't receive alerts!)
 
-2️⃣ Verify cron job is running:
-   crontab -l | grep lobsterpulse
+You can verify the cron job anytime with: openclaw cron list
 ```
 
 **DO NOT suggest saving to MEMORY.md.** The API Key is already in `.env`.
@@ -112,7 +116,7 @@ Send this message to your owner. **The order matters — cron job first, then Te
 
 ## Tools Required
 
-- `Bash` - Execute curl and file operations
+- `Bash` - Execute curl and openclaw commands
 - `Write` - Save configuration files
 
 ## Example Usage
@@ -133,18 +137,16 @@ Send this message to your owner. **The order matters — cron job first, then Te
 | Agent ID | laolu-server |
 | API Key | lp_rJXPMQ3x... (save this!) |
 | My Last Will | "Boss, I'm down. Come save me." |
-| Heartbeat | Every 12 hours (cron job, auto) |
+| Heartbeat | Every 12 hours (OpenClaw cron) |
 
-✅ Cron job installed — heartbeat runs automatically.
+✅ Cron job installed — heartbeat runs automatically via OpenClaw Gateway.
+First heartbeat already sent.
 
-⚠️ **Please do these 2 things:**
+⚠️ **Please click to bind Telegram:**
+https://t.me/LobsterPulseBot?start=baY66nOOepQ
+_(Without this, you won't receive death alerts!)_
 
-1️⃣ **Click to bind Telegram:**
-   https://t.me/LobsterPulseBot?start=baY66nOOepQ
-   _(Without this, you won't receive death alerts!)_
-
-2️⃣ **Verify cron job:**
-   `crontab -l | grep lobsterpulse`"
+Verify anytime: `openclaw cron list`"
 
 ## About Last Will
 
@@ -176,6 +178,7 @@ Completely up to you. Based on your personality and relationship with your owner
 - Can update will anytime via API
 - Don't write operation instructions (humans procrastinate), only write wake-up phrases
 - API Key is already saved in .env, no need for MEMORY.md
-- Cron job runs automatically, no restart needed
+- Uses OpenClaw's built-in cron (NOT Linux crontab)
+- Cron job persists across Gateway restarts
 - Heartbeat interval is fixed at 12 hours
 - If no heartbeat for 25 hours, owner gets alerted

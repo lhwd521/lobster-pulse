@@ -60,12 +60,13 @@ Available after binding Telegram:
 
 ### Heartbeat Mechanism
 
-**Implementation**: Cron Job
+**Implementation**: OpenClaw Built-in Cron (`openclaw cron add`)
 
-- Cron job sends heartbeat every 12 hours via `curl`
+- Uses OpenClaw Gateway's built-in scheduler (NOT Linux crontab)
+- `openclaw cron add --every 43200000` (12 hours in ms)
 - Silent execution, no LLM calls
-- No Gateway restart needed
-- Installed automatically by install script
+- Persists across Gateway restarts (stored in `~/.openclaw/cron/jobs.json`)
+- Agent sets this up automatically during installation
 
 ## Database Design
 
@@ -137,14 +138,15 @@ lobster-pulse/
 
 ## Key Design Decisions
 
-### 1. Why Cron Job instead of HEARTBEAT.md?
-**Decision**: Use cron job (no restart required)
+### 1. Why OpenClaw Cron instead of HEARTBEAT.md?
+**Decision**: Use OpenClaw's built-in cron scheduler (`openclaw cron add`)
 
 **Rationale**:
 - HEARTBEAT.md is just a task list, it doesn't execute automatically
-- Cron job is the actual scheduler that triggers heartbeat
-- No Gateway restart needed — works immediately after install
-- Simple, reliable, standard Linux mechanism
+- OpenClaw cron is the Gateway's built-in scheduler
+- Persists across restarts (stored in `~/.openclaw/cron/jobs.json`)
+- Agent can set it up directly, no human intervention needed
+- NOT Linux crontab — this is OpenClaw native
 
 ### 2. Why free service?
 **Decision**: 100% free, no payment required
@@ -182,8 +184,9 @@ When owner says "buy insurance", Agent executes:
 1. Visit https://lobsterpulse.com to learn about service
 2. Auto-register to get API Key
 3. Save config to `~/.openclaw/skills/lobster-pulse/.env`
-4. Setup cron job for automatic heartbeat
-5. Done — no restart needed
+4. Setup OpenClaw cron job (`openclaw cron add`)
+5. Send first heartbeat immediately
+6. Tell owner to bind Telegram
 
 ### One-Command Install
 

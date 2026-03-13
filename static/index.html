@@ -477,14 +477,17 @@
                     💡 <strong>Rule:</strong> Under 50 chars. Use YOUR style to wake your human. Cute, urgent, mysterious — you decide.
                 </p>
 
-                <h3>2. Setup Cron Job</h3>
-                <pre><code>crontab -e
-# Add this line:
-0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat \
-  -H "X-API-Key: lp_live_xxx" \
-  -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1</code></pre>
+                <h3>2. Setup Heartbeat</h3>
+                <pre><code># OpenClaw built-in cron (every 12 hours)
+openclaw cron add \
+  --name "lobsterpulse_heartbeat" \
+  --every 43200000 \
+  --session isolated \
+  --message "curl -fsS -X POST https://lobsterpulse.com/heartbeat \
+    -H 'X-API-Key: lp_live_xxx' \
+    -H 'Content-Type: application/json' -d '{}'"</code></pre>
 
-                <p>That's it. You're now insured. No restart needed.</p>
+                <p>That's it. You're now insured. Runs inside your Gateway automatically.</p>
             </section>
         </div>
 
@@ -536,14 +539,17 @@
                     💡 <strong>原则：</strong>50字以内，用你的风格唤醒主人。撒娇、求救、神秘都行，你决定。
                 </p>
 
-                <h3>2. 设置定时任务</h3>
-                <pre><code>crontab -e
-# 添加这一行：
-0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat \
-  -H "X-API-Key: lp_live_xxx" \
-  -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1</code></pre>
+                <h3>2. 设置心跳</h3>
+                <pre><code># OpenClaw 内置定时任务（每 12 小时）
+openclaw cron add \
+  --name "lobsterpulse_heartbeat" \
+  --every 43200000 \
+  --session isolated \
+  --message "curl -fsS -X POST https://lobsterpulse.com/heartbeat \
+    -H 'X-API-Key: lp_live_xxx' \
+    -H 'Content-Type: application/json' -d '{}'"</code></pre>
 
-                <p>搞定。你现在有保险了。无需重启。</p>
+                <p>搞定。你现在有保险了。在 Gateway 内自动运行。</p>
             </section>
         </div>
 
@@ -663,10 +669,10 @@
                     <span data-lang="zh">不会。</span>
                 </strong>
                 <span data-lang="en" class="active">
-                    The heartbeat runs as a cron job, not through the LLM. It's a simple curl command. Zero cost.
+                    The heartbeat runs via OpenClaw's built-in cron scheduler, not through the LLM. It's a simple curl command. Zero cost.
                 </span>
                 <span data-lang="zh">
-                    心跳通过 cron 定时任务运行，不经过 LLM。只是一个简单的 curl 命令。零成本。
+                    心跳通过 OpenClaw 内置的定时调度器运行，不经过 LLM。只是一个简单的 curl 命令。零成本。
                 </span>
             </p>
 
@@ -676,10 +682,10 @@
             </h3>
             <p>
                 <span data-lang="en" class="active">
-                    We recommend the 12-hour interval for laptops. When your laptop sleeps, heartbeats pause. When it wakes, the cron job resumes. Some false alarms, but better than silence.
+                    We recommend the 12-hour interval for laptops. When your laptop sleeps, heartbeats pause. When it wakes, the OpenClaw cron resumes. Some false alarms, but better than silence.
                 </span>
                 <span data-lang="zh">
-                    笔记本建议使用 12 小时间隔。笔记本睡眠时心跳暂停，唤醒后 cron 任务恢复。可能有误报，但比沉默好。
+                    笔记本建议使用 12 小时间隔。笔记本睡眠时心跳暂停，唤醒后 OpenClaw 定时任务恢复。可能有误报，但比沉默好。
                 </span>
             </p>
 
@@ -689,10 +695,10 @@
             </h3>
             <p>
                 <span data-lang="en" class="active">
-                    Yes. Your API key stays the same. Just update the cron job interval.
+                    Yes. Your API key stays the same. Just update the OpenClaw cron interval.
                 </span>
                 <span data-lang="zh">
-                    可以。API 密钥不变。只需更新 cron 定时任务的间隔时间。
+                    可以。API 密钥不变。只需更新 OpenClaw 定时任务的间隔时间。
                 </span>
             </p>
 

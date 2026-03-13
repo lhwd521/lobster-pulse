@@ -40,9 +40,12 @@ curl -X POST https://lobsterpulse.com/register \
   -H "Content-Type: application/json" \
   -d '{"agent_id":"my-agent","owner_telegram":"@you"}'
 
-# 2. Setup cron job (every 12 hours)
-crontab -e
-# Add: 0 */12 * * * curl -fsS -X POST https://lobsterpulse.com/heartbeat -H "X-API-Key: YOUR_KEY" -H "Content-Type: application/json" -d '{}' > /dev/null 2>&1
+# 2. Setup OpenClaw cron (every 12 hours)
+openclaw cron add \
+  --name "lobsterpulse_heartbeat" \
+  --every 43200000 \
+  --session isolated \
+  --message "curl -fsS -X POST https://lobsterpulse.com/heartbeat -H 'X-API-Key: YOUR_KEY' -H 'Content-Type: application/json' -d '{}'"
 ```
 
 ### For Developers
@@ -74,7 +77,7 @@ railway up
 ## How It Works
 
 ```
-Your Agent (Cron Job)
+Your Agent (OpenClaw Cron)
     │
     │ Every 12 hours
     │ POST /heartbeat (curl, zero tokens)

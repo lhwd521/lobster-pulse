@@ -553,21 +553,27 @@ LOBSTER_PULSE_AGENT_ID=${{AGENT_ID}}
 LOBSTER_PULSE_HOST=${{LOBSTER_PULSE_HOST}}
 EOF
 
-# Setup cron job for heartbeat (every 12 hours)
-CRON_CMD="0 */12 * * * curl -fsS -X POST ${{LOBSTER_PULSE_HOST}}/heartbeat -H \\"X-API-Key: ${{API_KEY}}\\" -H \\"Content-Type: application/json\\" -d '{{}}' > /dev/null 2>&1"
+# Setup OpenClaw cron job for heartbeat (every 12 hours)
+# Remove old lobster_pulse cron entry if exists
+openclaw cron list 2>/dev/null | grep -q "lobsterpulse_heartbeat" && \\
+  EXISTING_ID=$(openclaw cron list 2>/dev/null | grep "lobsterpulse_heartbeat" | awk '{{print $1}}') && \\
+  openclaw cron rm "$EXISTING_ID" 2>/dev/null
 
-# Remove old lobster_pulse cron entry if exists, then add new one
-(crontab -l 2>/dev/null | grep -v "lobsterpulse\\|lobster.pulse" ; echo "$CRON_CMD") | crontab -
+openclaw cron add \\
+  --name "lobsterpulse_heartbeat" \\
+  --every 43200000 \\
+  --session isolated \\
+  --message "curl -fsS -X POST ${{LOBSTER_PULSE_HOST}}/heartbeat -H 'X-API-Key: ${{API_KEY}}' -H 'Content-Type: application/json' -d '{{}}'"
 
 echo ""
-echo "🔄 Testing heartbeat..."
+echo "🔄 Sending first heartbeat..."
 TEST_RESULT=$(curl -s -X POST "${{LOBSTER_PULSE_HOST}}/heartbeat" \\
     -H "X-API-Key: $API_KEY" \\
     -H "Content-Type: application/json" \\
     -d '{{"status":"alive"}}' 2>/dev/null)
 
 if echo "$TEST_RESULT" | grep -q "acknowledged"; then
-    echo "✅ Test heartbeat successful!"
+    echo "✅ First heartbeat sent successfully!"
 else
     echo "⚠️ Test failed, but configuration is saved."
 fi
@@ -578,8 +584,8 @@ echo ""
 [ -n "$BIND_LINK" ] && echo "📱 Telegram: $BIND_LINK"
 [ -n "$PUBLIC_LINK" ] && echo "🌐 Public: $PUBLIC_LINK"
 echo ""
-echo "✅ Cron job installed: heartbeat every 12 hours"
-echo "   No restart needed. Verify with: crontab -l"
+echo "✅ OpenClaw cron job installed: heartbeat every 12 hours"
+echo "   Verify with: openclaw cron list"
 echo ""
 echo "Your Agent is now insured. 🦞"
 '''
